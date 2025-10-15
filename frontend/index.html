@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de integração de colaboradores Martins</title>
+    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/uicons-regular-rounded/css/uicons-regular-rounded.css">
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script defer src="./react-app.js"></script>
+</head>
+<body>
+    <header class="topbar" role="banner">
+        <div class="topbar__brand">
+            <div class="topbar__brand-badge" aria-hidden="true">
+                <i class="fi-rr-dashboard"></i>
+            </div>
+            <div class="topbar__brand-text">
+                <span class="topbar__brand-title">Qualidade Integração</span>
+                <span class="topbar__brand-subtitle">Painel operacional</span>
+            </div>
+        </div>
+        <nav class="topbar__nav" aria-label="Navegação principal">
+            <a href="#" class="topbar__nav-button topbar__nav-button--feed is-active">
+                <i class="fi-rr-clipboard" aria-hidden="true"></i>
+                <span>Alimentação</span>
+            </a>
+            <a href="#" class="topbar__nav-button topbar__nav-button--table">
+                <i class="fi-rr-table" aria-hidden="true"></i>
+                <span>Tabela</span>
+            </a>
+            <a href="#" class="topbar__nav-button topbar__nav-button--analytics">
+                <i class="fi-rr-chart-pie" aria-hidden="true"></i>
+                <span>Painel Gráfico</span>
+            </a>
+            <a href="#" class="topbar__nav-button topbar__nav-button--settings">
+                <i class="fi-rr-settings" aria-hidden="true"></i>
+                <span>Configurações</span>
+            </a>
+        </nav>
+        <div class="topbar__mode" aria-live="polite">
+            <span class="topbar__mode-indicator" aria-hidden="true"></span>
+            <span>Modo Padrão</span>
+        </div>
+    </header>
+    <div id="root"></div>
+</body>
+</html>
