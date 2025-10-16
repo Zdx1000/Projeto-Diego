@@ -14,6 +14,60 @@
     const TURNOS = ["1° Turno", "2° Turno"];
     const CARGOS = ["Operador 1", "Operador 2", "Operador 3"];
 
+    const THEMES = [
+        {
+            id: "default",
+            label: "Modo Padrão",
+            className: "",
+            preview: ["#4c6ef5", "#86b3ff"]
+        },
+        {
+            id: "dusk",
+            label: "Modo Dusk",
+            className: "theme-dusk",
+            preview: ["#5468ff", "#8997ff"]
+        },
+        {
+            id: "aurora",
+            label: "Modo Aurora",
+            className: "theme-aurora",
+            preview: ["#5fd3ff", "#9ee8ff"]
+        },
+        {
+            id: "rainforest",
+            label: "Modo Rainforest",
+            className: "theme-rainforest",
+            preview: ["#3fa96f", "#73d4a1"]
+        },
+        {
+            id: "ember",
+            label: "Modo Ember",
+            className: "theme-ember",
+            preview: ["#ff784f", "#ff9b6a"]
+        },
+        {
+            id: "monochrome",
+            label: "Modo Monocromático",
+            className: "theme-monochrome",
+            preview: ["#111827", "#4b5563"]
+        },
+        {
+            id: "candy",
+            label: "Modo Candy",
+            className: "theme-candy",
+            preview: ["#ff7eb6", "#ffb3d8"]
+        }
+    ];
+
+    const THEME_STORAGE_KEY = "projetoDiego.theme";
+    const THEME_CLASS_LIST = THEMES
+        .map(function (theme) {
+            return theme.className;
+        })
+        .filter(function (className) {
+            return Boolean(className);
+        });
+
     const ICON_GLYPHS = {
         matricula: function () {
             return [
@@ -391,6 +445,244 @@
         };
     };
 
+    const safeStorageGet = function (key) {
+        try {
+            if (!window.localStorage) {
+                return null;
+            }
+
+            return window.localStorage.getItem(key);
+        } catch (error) {
+            return null;
+        }
+    };
+
+    const safeStorageSet = function (key, value) {
+        try {
+            if (!window.localStorage) {
+                return;
+            }
+
+            window.localStorage.setItem(key, value);
+        } catch (error) {
+            // Ignora falhas de armazenamento (ex.: modo privado).
+        }
+    };
+
+    const findThemeById = function (themeId) {
+        if (!themeId) {
+            return null;
+        }
+
+        return (
+            THEMES.find(function (theme) {
+                return theme.id === themeId;
+            }) || null
+        );
+    };
+
+    const initializeThemeSwitcher = function () {
+        const modeContainer = document.querySelector(".topbar__mode");
+        if (!modeContainer) {
+            return;
+        }
+
+        const toggleButton = modeContainer.querySelector(".topbar__mode-toggle");
+        const labelNode = modeContainer.querySelector(".topbar__mode-label");
+        const menu = modeContainer.querySelector(".topbar__mode-menu");
+
+        if (!toggleButton || !labelNode || !menu) {
+            return;
+        }
+
+        const MENU_TRANSITION_MS = 180;
+        let hideMenuTimeoutId = null;
+
+        menu.hidden = true;
+        menu.setAttribute("aria-hidden", "true");
+
+        const storedTheme = findThemeById(safeStorageGet(THEME_STORAGE_KEY));
+        const existingThemeClass = THEMES.find(function (theme) {
+            return theme.className && document.documentElement.classList.contains(theme.className);
+        });
+
+        let activeTheme = storedTheme || existingThemeClass || THEMES[0];
+
+        const optionButtons = [];
+
+        THEMES.forEach(function (theme) {
+            const listItem = document.createElement("li");
+            listItem.className = "topbar__mode-menu-item";
+
+            const optionButton = document.createElement("button");
+            optionButton.type = "button";
+            optionButton.className = "topbar__mode-option";
+            optionButton.textContent = theme.label;
+            optionButton.setAttribute("role", "option");
+            optionButton.setAttribute("data-theme-id", theme.id);
+
+            if (Array.isArray(theme.preview)) {
+                optionButton.style.setProperty("--theme-preview-start", theme.preview[0]);
+                optionButton.style.setProperty("--theme-preview-end", theme.preview[1]);
+            }
+
+            optionButton.addEventListener("click", function () {
+                const nextTheme = findThemeById(optionButton.getAttribute("data-theme-id")) || THEMES[0];
+                applyTheme(nextTheme);
+                closeMenu();
+                toggleButton.focus();
+            });
+
+            listItem.appendChild(optionButton);
+            menu.appendChild(listItem);
+            optionButtons.push(optionButton);
+        });
+
+        const updateSelectedOption = function () {
+            optionButtons.forEach(function (button) {
+                const isActive = button.getAttribute("data-theme-id") === activeTheme.id;
+                button.setAttribute("aria-selected", isActive ? "true" : "false");
+                button.classList.toggle("is-active", isActive);
+            });
+        };
+
+        const applyTheme = function (theme, options) {
+            THEME_CLASS_LIST.forEach(function (className) {
+                document.documentElement.classList.remove(className);
+            });
+
+            if (theme.className) {
+                document.documentElement.classList.add(theme.className);
+            }
+
+            activeTheme = theme;
+            labelNode.textContent = theme.label;
+            toggleButton.setAttribute("data-theme-id", theme.id);
+            modeContainer.setAttribute("data-theme-id", theme.id);
+
+            updateSelectedOption();
+
+            if (!options || !options.skipPersist) {
+                safeStorageSet(THEME_STORAGE_KEY, theme.id);
+            }
+        };
+
+        const openMenu = function (shouldFocusOption) {
+            if (hideMenuTimeoutId) {
+                window.clearTimeout(hideMenuTimeoutId);
+                hideMenuTimeoutId = null;
+            }
+
+            if (modeContainer.classList.contains("is-open")) {
+                updateSelectedOption();
+                if (shouldFocusOption) {
+                    focusActiveOption();
+                }
+                return;
+            }
+
+            menu.hidden = false;
+            menu.setAttribute("aria-hidden", "false");
+
+            window.requestAnimationFrame(function () {
+                modeContainer.classList.add("is-open");
+            });
+
+            toggleButton.setAttribute("aria-expanded", "true");
+            updateSelectedOption();
+
+            if (shouldFocusOption) {
+                focusActiveOption();
+            }
+        };
+
+        const closeMenu = function () {
+            if (!modeContainer.classList.contains("is-open")) {
+                return;
+            }
+
+            modeContainer.classList.remove("is-open");
+            toggleButton.setAttribute("aria-expanded", "false");
+            menu.setAttribute("aria-hidden", "true");
+
+            hideMenuTimeoutId = window.setTimeout(function () {
+                menu.hidden = true;
+            }, MENU_TRANSITION_MS);
+        };
+
+        const focusActiveOption = function () {
+            const activeButton = optionButtons.find(function (button) {
+                return button.getAttribute("data-theme-id") === activeTheme.id;
+            });
+
+            const targetButton = activeButton || optionButtons[0];
+            if (targetButton) {
+                targetButton.focus();
+            }
+        };
+
+        toggleButton.addEventListener("click", function () {
+            if (modeContainer.classList.contains("is-open")) {
+                closeMenu();
+            } else {
+                openMenu(false);
+            }
+        });
+
+        toggleButton.addEventListener("keydown", function (event) {
+            if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openMenu(true);
+            }
+        });
+
+        menu.addEventListener("keydown", function (event) {
+            const currentIndex = optionButtons.indexOf(document.activeElement);
+
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                event.preventDefault();
+
+                if (currentIndex === -1) {
+                    focusActiveOption();
+                    return;
+                }
+
+                const delta = event.key === "ArrowDown" ? 1 : -1;
+                const nextIndex = (currentIndex + delta + optionButtons.length) % optionButtons.length;
+                optionButtons[nextIndex].focus();
+            } else if (event.key === "Home") {
+                event.preventDefault();
+                if (optionButtons[0]) {
+                    optionButtons[0].focus();
+                }
+            } else if (event.key === "End") {
+                event.preventDefault();
+                if (optionButtons.length) {
+                    optionButtons[optionButtons.length - 1].focus();
+                }
+            } else if (event.key === "Escape") {
+                event.preventDefault();
+                closeMenu();
+                toggleButton.focus();
+            }
+        });
+
+        document.addEventListener("click", function (event) {
+            if (!modeContainer.contains(event.target)) {
+                closeMenu();
+            }
+        });
+
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape" && modeContainer.classList.contains("is-open")) {
+                closeMenu();
+                toggleButton.focus();
+            }
+        });
+
+        applyTheme(activeTheme, { skipPersist: true });
+    };
+
     function App() {
         const [formData, setFormData] = React.useState(buildDefaultFormState);
 
@@ -765,4 +1057,6 @@
     const rootElement = document.getElementById("root");
     const root = ReactDOM.createRoot(rootElement);
     root.render(e(App));
+
+    initializeThemeSwitcher();
 })();

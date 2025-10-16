@@ -40,8 +40,12 @@
             </a>
         </nav>
         <div class="topbar__mode" aria-live="polite">
-            <span class="topbar__mode-indicator" aria-hidden="true"></span>
-            <span>Modo Padrão</span>
+            <button id="topbar-mode-toggle" class="topbar__mode-toggle" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Selecionar modo visual" aria-controls="topbar-mode-menu">
+                <span class="topbar__mode-indicator" aria-hidden="true"></span>
+                <span class="topbar__mode-label">Modo Padrão</span>
+                <i class="fi-rr-angle-small-down topbar__mode-chevron" aria-hidden="true"></i>
+            </button>
+            <ul id="topbar-mode-menu" class="topbar__mode-menu" role="listbox" aria-labelledby="topbar-mode-toggle"></ul>
         </div>
     </header>
     <div id="root"></div>
