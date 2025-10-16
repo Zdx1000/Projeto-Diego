@@ -5,6 +5,10 @@
 @import url("./Themas/ember.css");
 @import url("./Themas/monochrome.css");
 @import url("./Themas/candy.css");
+@import url("./Themas/inferno.css");
+@import url("./Themas/eclipse.css");
+@import url("./Themas/abyss.css");
+@import url("./Themas/reptile.css");
 
 * {
     box-sizing: border-box;
@@ -37,6 +41,8 @@ body {
     align-items: center;
     border-radius: var(--radius-lg);
     margin: 0 auto 2.25rem;
+    position: relative;
+    z-index: 250;
 }
 
 .topbar__brand {
@@ -127,6 +133,10 @@ body {
 
 .topbar__nav-button--table i {
     background: linear-gradient(135deg, var(--nav-table-gradient-start) 0%, var(--nav-table-gradient-end) 100%);
+}
+
+.topbar__nav-button--occurrence i {
+    background: linear-gradient(135deg, var(--icon-observacao-gradient-start) 0%, var(--icon-observacao-gradient-end) 100%);
 }
 
 .topbar__nav-button--analytics i {
@@ -321,6 +331,26 @@ body {
     margin: 0 auto;
 }
 
+.app-container--occurrence {
+    box-shadow: var(--shadow-floating);
+    border-color: rgba(var(--glow-rose-rgb), 0.22);
+}
+
+.app-container--occurrence .app-header {
+    background: linear-gradient(135deg, rgba(var(--white-rgb), 0.88) 0%, rgba(var(--glow-rose-rgb), 0.16) 100%);
+    border-bottom-color: rgba(var(--glow-rose-rgb), 0.24);
+}
+
+.app-container--settings {
+    box-shadow: var(--shadow-soft);
+    border-color: rgba(var(--glow-lavender-rgb), 0.24);
+}
+
+.app-container--settings .app-header {
+    background: linear-gradient(135deg, rgba(var(--white-rgb), 0.9) 0%, rgba(var(--glow-lavender-rgb), 0.14) 100%);
+    border-bottom-color: rgba(var(--glow-lavender-rgb), 0.28);
+}
+
 .app-header {
     background: rgba(var(--white-rgb), 0.82);
     color: var(--text-color);
@@ -443,6 +473,20 @@ body {
     --header-secondary: var(--header-observacoes-secondary);
     --header-highlight: var(--header-observacoes-highlight);
     --header-shadow: var(--header-observacoes-shadow);
+}
+
+.field-section__header--ocorrencia {
+    --header-primary: var(--header-observacoes-primary);
+    --header-secondary: var(--header-observacoes-secondary);
+    --header-highlight: var(--header-observacoes-highlight);
+    --header-shadow: var(--header-observacoes-shadow);
+}
+
+.field-section__header--configuracao {
+    --header-primary: rgba(var(--glow-lavender-rgb), 0.32);
+    --header-secondary: rgba(var(--glow-violet-rgb), 0.18);
+    --header-highlight: var(--nav-settings-gradient-start);
+    --header-shadow: rgba(var(--glow-violet-rgb), 0.45);
 }
 
 .field-section__title {
@@ -896,6 +940,14 @@ textarea:focus {
     gap: 0.35rem;
 }
 
+.app-container--occurrence .action-note {
+    color: rgba(var(--glow-rose-rgb), 0.75);
+}
+
+.app-container--settings .action-note {
+    color: rgba(var(--muted-strong-rgb), 0.85);
+}
+
 .icon-badge {
     width: 46px;
     height: 46px;
@@ -924,6 +976,16 @@ textarea:focus {
 .icon-badge--violet {
     background: linear-gradient(135deg, var(--badge-violet-gradient-start) 0%, var(--badge-violet-gradient-end) 100%);
     box-shadow: 0 12px 22px rgba(var(--glow-lavender-rgb), 0.28);
+}
+
+.icon-badge--danger {
+    background: linear-gradient(135deg, var(--badge-default-gradient-start) 0%, var(--badge-default-gradient-end) 100%);
+    box-shadow: 0 14px 26px rgba(var(--glow-rose-rgb), 0.32);
+}
+
+.icon-badge--slate {
+    background: linear-gradient(135deg, var(--nav-settings-gradient-start) 0%, var(--nav-settings-gradient-end) 100%);
+    box-shadow: 0 14px 26px rgba(var(--glow-lavender-rgb), 0.3);
 }
 
 .icon-badge__glyph {

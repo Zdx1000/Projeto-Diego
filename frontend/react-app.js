@@ -13,6 +13,20 @@
     const INTEGRACOES = ["Sim", "Não"];
     const TURNOS = ["1° Turno", "2° Turno"];
     const CARGOS = ["Operador 1", "Operador 2", "Operador 3"];
+    const TURNOS_OCORRENCIA = ["1° Turno", "2° Turno", "3° Turno"];
+    const GRAUS_OCORRENCIA = [
+        { value: "0", label: "0 - Muito baixo" },
+        { value: "1", label: "1 - Baixo" },
+        { value: "2", label: "2 - Baixo moderado" },
+        { value: "3", label: "3 - Atenção" },
+        { value: "4", label: "4 - Relevante" },
+        { value: "5", label: "5 - Moderado" },
+        { value: "6", label: "6 - Significativo" },
+        { value: "7", label: "7 - Alto" },
+        { value: "8", label: "8 - Muito alto" },
+        { value: "9", label: "9 - Crítico" },
+        { value: "10", label: "10 - Muito grave" }
+    ];
 
     const THEMES = [
         {
@@ -56,6 +70,30 @@
             label: "Modo Candy",
             className: "theme-candy",
             preview: ["#ff7eb6", "#ffb3d8"]
+        },
+        {
+            id: "inferno",
+            label: "Modo Inferno",
+            className: "theme-inferno",
+            preview: ["#ff4d36", "#ff7a45"]
+        },
+        {
+            id: "eclipse",
+            label: "Modo Eclipse",
+            className: "theme-eclipse",
+            preview: ["#8c6cf8", "#ff6bd6"]
+        },
+        {
+            id: "abyss",
+            label: "Modo Abismo",
+            className: "theme-abyss",
+            preview: ["#34c6ff", "#2fd4a5"]
+        },
+        {
+            id: "reptile",
+            label: "Modo Reptile",
+            className: "theme-reptile",
+            preview: ["#45d97c", "#20995b"]
         }
     ];
 
@@ -67,6 +105,37 @@
         .filter(function (className) {
             return Boolean(className);
         });
+    const VIEW_STORAGE_KEY = "projetoDiego.activeView";
+    const VIEW_CONFIG = {
+        integration: {
+            id: "integration",
+            label: "Alimentação Integração",
+            title: "Controle de integração de colaboradores Martins",
+            description: "Cadastre novos colaboradores no sistema",
+            primaryActionLabel: "Salvar registro",
+            secondaryActionLabel: "Ir para tabela",
+            note: "Todos os campos são obrigatórios"
+        },
+        occurrence: {
+            id: "occurrence",
+            label: "Alimentação Ocorrência",
+            title: "Registro de ocorrências de colaboradores",
+            description: "Relate divergências e incidentes para acompanhamento",
+            primaryActionLabel: "Salvar ocorrência",
+            secondaryActionLabel: "Consultar histórico",
+            note: "Revise com atenção antes de registrar a ocorrência"
+        },
+        settings: {
+            id: "settings",
+            label: "Configurações",
+            title: "Configuração das listas de referência",
+            description: "Ajuste os valores usados nos formulários de integração e ocorrência",
+            primaryActionLabel: "Guardar configurações",
+            secondaryActionLabel: "Restaurar padrões",
+            note: "As alterações são aplicadas somente após salvar"
+        }
+    };
+    const VALID_VIEW_IDS = Object.keys(VIEW_CONFIG);
 
     const ICON_GLYPHS = {
         matricula: function () {
@@ -369,6 +438,81 @@
                 })
             ];
         },
+        gravidade: function () {
+            return [
+                e("path", {
+                    key: "triangle",
+                    d: "M12 5.2l8.2 14.6H3.8z",
+                    fill: "none",
+                    stroke: "currentColor",
+                    strokeWidth: 1.7,
+                    strokeLinejoin: "round"
+                }),
+                e("path", {
+                    key: "mark",
+                    d: "M12 10.2v4.7",
+                    fill: "none",
+                    stroke: "currentColor",
+                    strokeWidth: 1.6,
+                    strokeLinecap: "round"
+                }),
+                e("circle", {
+                    key: "dot",
+                    cx: 12,
+                    cy: 17.2,
+                    r: 0.95,
+                    fill: "currentColor"
+                })
+            ];
+        },
+        volumes: function () {
+            return [
+                e("rect", {
+                    key: "top",
+                    x: 6,
+                    y: 6.2,
+                    width: 12,
+                    height: 4,
+                    rx: 1.3,
+                    ry: 1.3,
+                    fill: "none",
+                    stroke: "currentColor",
+                    strokeWidth: 1.5
+                }),
+                e("rect", {
+                    key: "middle",
+                    x: 4.8,
+                    y: 11,
+                    width: 14.4,
+                    height: 4.2,
+                    rx: 1.4,
+                    ry: 1.4,
+                    fill: "none",
+                    stroke: "currentColor",
+                    strokeWidth: 1.5
+                }),
+                e("rect", {
+                    key: "bottom",
+                    x: 6,
+                    y: 16,
+                    width: 12,
+                    height: 4,
+                    rx: 1.3,
+                    ry: 1.3,
+                    fill: "none",
+                    stroke: "currentColor",
+                    strokeWidth: 1.5
+                }),
+                e("path", {
+                    key: "details",
+                    d: "M8.8 8.2h3.4m-3.4 4.8h6.4m-6.4 4.4h5.2",
+                    fill: "none",
+                    stroke: "currentColor",
+                    strokeWidth: 1.2,
+                    strokeLinecap: "round"
+                })
+            ];
+        },
         default: function () {
             return [
                 e("circle", {
@@ -442,6 +586,50 @@
             cargo: CARGOS[0],
             data: "",
             observacao: ""
+        };
+    };
+
+    const buildDefaultOccurrenceState = function () {
+        return {
+            matricula: "",
+            nome: "",
+            setor: SETORES[0],
+            cargo: CARGOS[0],
+            turno: TURNOS_OCORRENCIA[0],
+            supervisor: "",
+            grau: GRAUS_OCORRENCIA[0].value,
+            volumes: "",
+            observacao: ""
+        };
+    };
+
+    const buildDefaultConfigState = function () {
+        return {
+            integration: {
+                setores: SETORES.join("\n"),
+                cargos: CARGOS.join("\n"),
+                turnos: TURNOS.join("\n"),
+                integracoes: INTEGRACOES.join("\n")
+            },
+            occurrence: {
+                turnos: TURNOS_OCORRENCIA.join("\n"),
+                graus: GRAUS_OCORRENCIA.map(function (option) {
+                    return option.label;
+                }).join("\n")
+            }
+        };
+    };
+
+    const createChangeHandler = function (setState) {
+        return function (field) {
+            return function (event) {
+                const value = event.target.value;
+                setState(function (prev) {
+                    return Object.assign({}, prev, {
+                        [field]: value
+                    });
+                });
+            };
         };
     };
 
@@ -683,20 +871,105 @@
         applyTheme(activeTheme, { skipPersist: true });
     };
 
-    function App() {
-        const [formData, setFormData] = React.useState(buildDefaultFormState);
+    const initializeTopbarNavigation = function () {
+        const navButtons = Array.from(document.querySelectorAll(".topbar__nav-button[data-view]"));
+        if (!navButtons.length) {
+            return;
+        }
 
-        const handleChange = function (field) {
+        const setActiveButton = function (targetView) {
+            navButtons.forEach(function (button) {
+                const buttonView = button.getAttribute("data-view");
+                const isActive = buttonView === targetView;
+                button.classList.toggle("is-active", isActive);
+
+                if (isActive) {
+                    button.setAttribute("aria-current", "page");
+                } else {
+                    button.removeAttribute("aria-current");
+                }
+            });
+        };
+
+        navButtons.forEach(function (button) {
+            button.addEventListener("click", function (event) {
+                event.preventDefault();
+                const view = button.getAttribute("data-view");
+                if (!view || VALID_VIEW_IDS.indexOf(view) === -1) {
+                    return;
+                }
+
+                setActiveButton(view);
+
+                window.dispatchEvent(
+                    new CustomEvent("app:view-change", {
+                        detail: { view: view }
+                    })
+                );
+            });
+        });
+
+        window.addEventListener("app:view-ready", function (event) {
+            const detail = event.detail || {};
+            const view = detail.view;
+            if (!view) {
+                return;
+            }
+
+            setActiveButton(view);
+        });
+
+        const storedView = safeStorageGet(VIEW_STORAGE_KEY);
+        const hasStoredView = navButtons.some(function (button) {
+            return button.getAttribute("data-view") === storedView;
+        });
+        const fallbackView = navButtons[0] ? navButtons[0].getAttribute("data-view") : null;
+        const initialView = hasStoredView ? storedView : fallbackView;
+
+        if (initialView) {
+            setActiveButton(initialView);
+        }
+    };
+
+    function App() {
+        const [activeView, setActiveView] = React.useState(function () {
+            const storedView = safeStorageGet(VIEW_STORAGE_KEY);
+            if (storedView && VALID_VIEW_IDS.indexOf(storedView) !== -1) {
+                return storedView;
+            }
+            return "integration";
+        });
+        const [formData, setFormData] = React.useState(buildDefaultFormState);
+        const [occurrenceData, setOccurrenceData] = React.useState(buildDefaultOccurrenceState);
+        const [configData, setConfigData] = React.useState(buildDefaultConfigState);
+
+        const handleIntegrationChange = createChangeHandler(setFormData);
+        const handleOccurrenceChange = createChangeHandler(setOccurrenceData);
+        const handleConfigChange = function (category, field) {
             return function (event) {
-                setFormData(function (prev) {
-                    return Object.assign({}, prev, {
-                        [field]: event.target.value
+                const value = event.target.value;
+
+                setConfigData(function (previous) {
+                    const nextCategory = Object.assign({}, previous[category], {
+                        [field]: value
+                    });
+
+                    return Object.assign({}, previous, {
+                        [category]: nextCategory
                     });
                 });
             };
         };
 
-        const handleSubmit = function (event) {
+        const buildOption = function (value) {
+            return e("option", { value: value, key: value }, value);
+        };
+
+        const buildLabeledOption = function (option) {
+            return e("option", { value: option.value, key: option.value }, option.label);
+        };
+
+        const handleIntegrationSubmit = function (event) {
             event.preventDefault();
 
             const payload = Object.assign({}, formData, {
@@ -711,345 +984,850 @@
             setFormData(buildDefaultFormState());
         };
 
-        const buildOption = function (value) {
-            return e("option", { value: value, key: value }, value);
+        const handleOccurrenceSubmit = function (event) {
+            event.preventDefault();
+
+            const matriculaNumber = occurrenceData.matricula ? parseInt(occurrenceData.matricula, 10) : null;
+            const grauNumber = occurrenceData.grau ? parseInt(occurrenceData.grau, 10) : null;
+            const volumeNumber = occurrenceData.volumes !== "" ? parseInt(occurrenceData.volumes, 10) : null;
+
+            const payload = Object.assign({}, occurrenceData, {
+                matricula: Number.isNaN(matriculaNumber) ? null : matriculaNumber,
+                grau: Number.isNaN(grauNumber) ? null : grauNumber,
+                volumes: Number.isNaN(volumeNumber) ? null : volumeNumber
+            });
+
+            console.group("Ocorrência registrada");
+            console.table(payload);
+            console.groupEnd();
+
+            setOccurrenceData(buildDefaultOccurrenceState());
+        };
+
+        const handleConfigSubmit = function (event) {
+            event.preventDefault();
+
+            const parseList = function (text) {
+                if (!text) {
+                    return [];
+                }
+
+                return text
+                    .split(/\r?\n/)
+                    .map(function (item) {
+                        return item.trim();
+                    })
+                    .filter(function (item) {
+                        return item.length > 0;
+                    });
+            };
+
+            const payload = {
+                integration: {
+                    setores: parseList(configData.integration.setores),
+                    cargos: parseList(configData.integration.cargos),
+                    turnos: parseList(configData.integration.turnos),
+                    integracoes: parseList(configData.integration.integracoes)
+                },
+                occurrence: {
+                    turnos: parseList(configData.occurrence.turnos),
+                    graus: parseList(configData.occurrence.graus)
+                }
+            };
+
+            console.group("Configurações atualizadas");
+            console.log("Integração", payload.integration);
+            console.log("Ocorrência", payload.occurrence);
+            console.groupEnd();
+        };
+
+        const handleResetConfigs = function () {
+            setConfigData(buildDefaultConfigState());
+            console.info("As listas foram restauradas para os valores padrão.");
+        };
+
+        React.useEffect(function () {
+            const handleViewChange = function (event) {
+                const detail = event.detail || {};
+                const nextView = detail.view;
+
+                if (!nextView || VALID_VIEW_IDS.indexOf(nextView) === -1) {
+                    return;
+                }
+
+                setActiveView(function (previous) {
+                    if (previous === nextView) {
+                        return previous;
+                    }
+
+                    return nextView;
+                });
+
+                safeStorageSet(VIEW_STORAGE_KEY, nextView);
+            };
+
+            window.addEventListener("app:view-change", handleViewChange);
+
+            return function () {
+                window.removeEventListener("app:view-change", handleViewChange);
+            };
+        }, []);
+
+        React.useEffect(function () {
+            safeStorageSet(VIEW_STORAGE_KEY, activeView);
+            window.dispatchEvent(
+                new CustomEvent("app:view-ready", {
+                    detail: { view: activeView }
+                })
+            );
+        }, [activeView]);
+
+        const handleNavigateToTable = function () {
+            console.info("A navegação para a tabela será implementada em uma etapa futura.");
+        };
+
+        const handleConsultHistory = function () {
+            console.info("A consulta ao histórico de ocorrências será implementada em uma etapa futura.");
+        };
+
+        const metadata = VIEW_CONFIG[activeView] || VIEW_CONFIG.integration;
+
+        const renderIdentificationSection = function (state, changeHandler) {
+            return e(
+                "section",
+                { className: "field-section" },
+                e(
+                    "div",
+                    { className: "field-section__header field-section__header--identificacao" },
+                    e(
+                        "div",
+                        { className: "icon-badge icon-badge--blue", "aria-hidden": "true" },
+                        e("span", { className: "icon-badge__glyph" }, "ID")
+                    ),
+                    e(
+                        "div",
+                        { className: "field-section__titles" },
+                        e(
+                            "div",
+                            { className: "field-section__title-shell" },
+                            e("span", {
+                                className: "field-section__hover field-section__hover--upper",
+                                "aria-hidden": "true"
+                            }),
+                            e("span", {
+                                className: "field-section__hover field-section__hover--lower",
+                                "aria-hidden": "true"
+                            }),
+                            renderSectionTitle("Identificação do Colaborador", "identificacao")
+                        ),
+                        e(
+                            "span",
+                            { className: "field-section__subtitle" },
+                            "Informe matrícula e nome completo"
+                        )
+                    )
+                ),
+                e(
+                    "div",
+                    { className: "field-section__grid field-section__grid--cols-2" },
+                    e(
+                        "label",
+                        { className: "form-field", htmlFor: "matricula" },
+                        renderFieldLabel("Matrícula", "matricula"),
+                        e("input", {
+                            id: "matricula",
+                            type: "number",
+                            inputMode: "numeric",
+                            min: "0",
+                            placeholder: "Ex.: 12345",
+                            value: state.matricula,
+                            onChange: changeHandler("matricula"),
+                            required: true
+                        })
+                    ),
+                    e(
+                        "label",
+                        { className: "form-field", htmlFor: "nome" },
+                        renderFieldLabel("Nome do colaborador", "nome"),
+                        e("input", {
+                            id: "nome",
+                            type: "text",
+                            placeholder: "Ex.: Maria Silva Santos",
+                            value: state.nome,
+                            onChange: changeHandler("nome"),
+                            required: true,
+                            maxLength: 120
+                        })
+                    )
+                )
+            );
+        };
+
+        const renderRoleSection = function (state, changeHandler, options) {
+            const config = Object.assign(
+                {
+                    headerClass: "field-section__header--funcao",
+                    badgeModifier: "",
+                    badgeGlyph: "FL",
+                    titleText: "Função e localização",
+                    titleKey: "funcao",
+                    subtitleText: "Defina setor e cargo do colaborador"
+                },
+                options || {}
+            );
+
+            const badgeClass = config.badgeModifier
+                ? "icon-badge " + config.badgeModifier
+                : "icon-badge";
+
+            return e(
+                "section",
+                { className: "field-section" },
+                e(
+                    "div",
+                    { className: "field-section__header " + config.headerClass },
+                    e(
+                        "div",
+                        { className: badgeClass, "aria-hidden": "true" },
+                        e("span", { className: "icon-badge__glyph" }, config.badgeGlyph)
+                    ),
+                    e(
+                        "div",
+                        { className: "field-section__titles" },
+                        e(
+                            "div",
+                            { className: "field-section__title-shell" },
+                            e("span", {
+                                className: "field-section__hover field-section__hover--upper",
+                                "aria-hidden": "true"
+                            }),
+                            e("span", {
+                                className: "field-section__hover field-section__hover--lower",
+                                "aria-hidden": "true"
+                            }),
+                            renderSectionTitle(config.titleText, config.titleKey)
+                        ),
+                        e(
+                            "span",
+                            { className: "field-section__subtitle" },
+                            config.subtitleText
+                        )
+                    )
+                ),
+                e(
+                    "div",
+                    { className: "field-section__grid field-section__grid--cols-2" },
+                    e(
+                        "label",
+                        { className: "form-field", htmlFor: "setor" },
+                        renderFieldLabel("Setor", "setor"),
+                        e(
+                            "select",
+                            {
+                                id: "setor",
+                                value: state.setor,
+                                onChange: changeHandler("setor"),
+                                required: true
+                            },
+                            SETORES.map(buildOption)
+                        )
+                    ),
+                    e(
+                        "label",
+                        { className: "form-field", htmlFor: "cargo" },
+                        renderFieldLabel("Cargo", "cargo"),
+                        e(
+                            "select",
+                            {
+                                id: "cargo",
+                                value: state.cargo,
+                                onChange: changeHandler("cargo"),
+                                required: true
+                            },
+                            CARGOS.map(buildOption)
+                        )
+                    )
+                )
+            );
+        };
+
+        const renderIntegrationManagementSection = function () {
+            return e(
+                "section",
+                { className: "field-section" },
+                e(
+                    "div",
+                    { className: "field-section__header field-section__header--gestao" },
+                    e(
+                        "div",
+                        { className: "icon-badge icon-badge--green", "aria-hidden": "true" },
+                        e("span", { className: "icon-badge__glyph" }, "GI")
+                    ),
+                    e(
+                        "div",
+                        { className: "field-section__titles" },
+                        e(
+                            "div",
+                            { className: "field-section__title-shell" },
+                            e("span", {
+                                className: "field-section__hover field-section__hover--upper",
+                                "aria-hidden": "true"
+                            }),
+                            e("span", {
+                                className: "field-section__hover field-section__hover--lower",
+                                "aria-hidden": "true"
+                            }),
+                            renderSectionTitle("Gestão e integração", "gestao")
+                        ),
+                        e(
+                            "span",
+                            { className: "field-section__subtitle" },
+                            "Controle de turno, supervisor e integração"
+                        )
+                    )
+                ),
+                e(
+                    "div",
+                    { className: "field-section__grid field-section__grid--cols-2" },
+                    e(
+                        "label",
+                        { className: "form-field", htmlFor: "turno" },
+                        renderFieldLabel("Turno", "turno"),
+                        e(
+                            "select",
+                            {
+                                id: "turno",
+                                value: formData.turno,
+                                onChange: handleIntegrationChange("turno"),
+                                required: true
+                            },
+                            TURNOS.map(buildOption)
+                        )
+                    ),
+                    e(
+                        "label",
+                        { className: "form-field", htmlFor: "integracao" },
+                        renderFieldLabel("Integração", "integracao"),
+                        e(
+                            "select",
+                            {
+                                id: "integracao",
+                                value: formData.integracao,
+                                onChange: handleIntegrationChange("integracao"),
+                                required: true
+                            },
+                            INTEGRACOES.map(buildOption)
+                        )
+                    ),
+                    e(
+                        "label",
+                        { className: "form-field", htmlFor: "supervisor" },
+                        renderFieldLabel("Supervisor", "supervisor"),
+                        e("input", {
+                            id: "supervisor",
+                            type: "text",
+                            placeholder: "Nome do supervisor",
+                            value: formData.supervisor,
+                            onChange: handleIntegrationChange("supervisor"),
+                            required: true,
+                            maxLength: 120
+                        }),
+                        e(
+                            "span",
+                            { className: "form-field-description" },
+                            "Será salvo automaticamente em maiúsculas"
+                        )
+                    ),
+                    e(
+                        "label",
+                        { className: "form-field", htmlFor: "data" },
+                        renderFieldLabel("Data", "data"),
+                        e("input", {
+                            id: "data",
+                            type: "date",
+                            value: formData.data,
+                            onChange: handleIntegrationChange("data"),
+                            required: true
+                        })
+                    )
+                )
+            );
+        };
+
+        const renderOccurrenceDetailsSection = function () {
+            return e(
+                "section",
+                { className: "field-section" },
+                e(
+                    "div",
+                    { className: "field-section__header field-section__header--ocorrencia" },
+                    e(
+                        "div",
+                        { className: "icon-badge icon-badge--danger", "aria-hidden": "true" },
+                        e("span", { className: "icon-badge__glyph" }, "OC")
+                    ),
+                    e(
+                        "div",
+                        { className: "field-section__titles" },
+                        e(
+                            "div",
+                            { className: "field-section__title-shell" },
+                            e("span", {
+                                className: "field-section__hover field-section__hover--upper",
+                                "aria-hidden": "true"
+                            }),
+                            e("span", {
+                                className: "field-section__hover field-section__hover--lower",
+                                "aria-hidden": "true"
+                            }),
+                            renderSectionTitle("Detalhes da ocorrência", "ocorrencia")
+                        ),
+                        e(
+                            "span",
+                            { className: "field-section__subtitle" },
+                            "Informe turno, responsáveis e gravidade do evento"
+                        )
+                    )
+                ),
+                e(
+                    "div",
+                    { className: "field-section__grid field-section__grid--cols-2" },
+                    e(
+                        "label",
+                        { className: "form-field", htmlFor: "turnoOcorrencia" },
+                        renderFieldLabel("Turno", "turno"),
+                        e(
+                            "select",
+                            {
+                                id: "turnoOcorrencia",
+                                value: occurrenceData.turno,
+                                onChange: handleOccurrenceChange("turno"),
+                                required: true
+                            },
+                            TURNOS_OCORRENCIA.map(buildOption)
+                        )
+                    ),
+                    e(
+                        "label",
+                        { className: "form-field", htmlFor: "supervisorOcorrencia" },
+                        renderFieldLabel("Supervisor responsável", "supervisor"),
+                        e("input", {
+                            id: "supervisorOcorrencia",
+                            type: "text",
+                            placeholder: "Quem acompanhou o colaborador",
+                            value: occurrenceData.supervisor,
+                            onChange: handleOccurrenceChange("supervisor"),
+                            required: true,
+                            maxLength: 120
+                        }),
+                        e(
+                            "span",
+                            { className: "form-field-description" },
+                            "Informe o líder presente no momento do ocorrido"
+                        )
+                    ),
+                    e(
+                        "label",
+                        { className: "form-field", htmlFor: "grauOcorrencia" },
+                        renderFieldLabel("Grau de ocorrência", "gravidade"),
+                        e(
+                            "select",
+                            {
+                                id: "grauOcorrencia",
+                                value: occurrenceData.grau,
+                                onChange: handleOccurrenceChange("grau"),
+                                required: true
+                            },
+                            GRAUS_OCORRENCIA.map(buildLabeledOption)
+                        ),
+                        e(
+                            "span",
+                            { className: "form-field-description" },
+                            "Utilize a escala para indicar a severidade da divergência"
+                        )
+                    ),
+                    e(
+                        "label",
+                        { className: "form-field", htmlFor: "volumesOcorrencia" },
+                        renderFieldLabel("Quantidade de volumes", "volumes"),
+                        e("input", {
+                            id: "volumesOcorrencia",
+                            type: "number",
+                            inputMode: "numeric",
+                            min: "0",
+                            placeholder: "Ex.: 12",
+                            value: occurrenceData.volumes,
+                            onChange: handleOccurrenceChange("volumes"),
+                            required: true
+                        })
+                    )
+                )
+            );
+        };
+
+        const renderObservationsSection = function (state, changeHandler, options) {
+            const config = Object.assign(
+                {
+                    headerClass: "field-section__header--observacoes",
+                    badgeModifier: "icon-badge--violet",
+                    badgeGlyph: "OB",
+                    titleText: "Observações adicionais",
+                    titleKey: "observacoes",
+                    subtitleText: "Contextualize detalhes relevantes do colaborador",
+                    textareaId: "observacao",
+                    placeholder: "Digite observações relevantes sobre o colaborador ou processo..."
+                },
+                options || {}
+            );
+
+            const badgeClass = config.badgeModifier
+                ? "icon-badge " + config.badgeModifier
+                : "icon-badge";
+
+            return e(
+                "section",
+                { className: "field-section" },
+                e(
+                    "div",
+                    { className: "field-section__header " + config.headerClass },
+                    e(
+                        "div",
+                        { className: badgeClass, "aria-hidden": "true" },
+                        e("span", { className: "icon-badge__glyph" }, config.badgeGlyph)
+                    ),
+                    e(
+                        "div",
+                        { className: "field-section__titles" },
+                        e(
+                            "div",
+                            { className: "field-section__title-shell" },
+                            e("span", {
+                                className: "field-section__hover field-section__hover--upper",
+                                "aria-hidden": "true"
+                            }),
+                            e("span", {
+                                className: "field-section__hover field-section__hover--lower",
+                                "aria-hidden": "true"
+                            }),
+                            renderSectionTitle(config.titleText, config.titleKey)
+                        ),
+                        e(
+                            "span",
+                            { className: "field-section__subtitle" },
+                            config.subtitleText
+                        )
+                    )
+                ),
+                e(
+                    "div",
+                    { className: "field-section__grid field-section__grid--cols-1" },
+                    e(
+                        "label",
+                        { className: "form-field", htmlFor: config.textareaId },
+                        renderFieldLabel("Observação", "observacao"),
+                        e("textarea", {
+                            id: config.textareaId,
+                            placeholder: config.placeholder,
+                            value: state.observacao || "",
+                            onChange: changeHandler("observacao"),
+                            maxLength: 400
+                        })
+                    )
+                )
+            );
+        };
+
+        const renderConfigurationForm = function () {
+            return e(
+                "form",
+                { className: "integration-form", onSubmit: handleConfigSubmit },
+                e(
+                    "section",
+                    { className: "field-section" },
+                    e(
+                        "div",
+                        { className: "field-section__header field-section__header--configuracao" },
+                        e(
+                            "div",
+                            { className: "icon-badge icon-badge--slate", "aria-hidden": "true" },
+                            e("span", { className: "icon-badge__glyph" }, "IN")
+                        ),
+                        e(
+                            "div",
+                            { className: "field-section__titles" },
+                            e(
+                                "div",
+                                { className: "field-section__title-shell" },
+                                e("span", {
+                                    className: "field-section__hover field-section__hover--upper",
+                                    "aria-hidden": "true"
+                                }),
+                                e("span", {
+                                    className: "field-section__hover field-section__hover--lower",
+                                    "aria-hidden": "true"
+                                }),
+                                renderSectionTitle("Listas de Integração", "config-integracao")
+                            ),
+                            e(
+                                "span",
+                                { className: "field-section__subtitle" },
+                                "Gerencie os valores exibidos no formulário de integração"
+                            )
+                        )
+                    ),
+                    e(
+                        "div",
+                        { className: "field-section__grid field-section__grid--cols-2" },
+                        e(
+                            "label",
+                            { className: "form-field", htmlFor: "config-setores" },
+                            renderFieldLabel("Lista de setores", "setor"),
+                            e("textarea", {
+                                id: "config-setores",
+                                rows: 5,
+                                value: configData.integration.setores,
+                                onChange: handleConfigChange("integration", "setores"),
+                                placeholder: "Um item por linha"
+                            }),
+                            e(
+                                "span",
+                                { className: "form-field-description" },
+                                "Separe cada setor em uma linha."
+                            )
+                        ),
+                        e(
+                            "label",
+                            { className: "form-field", htmlFor: "config-cargos" },
+                            renderFieldLabel("Lista de cargos", "cargo"),
+                            e("textarea", {
+                                id: "config-cargos",
+                                rows: 5,
+                                value: configData.integration.cargos,
+                                onChange: handleConfigChange("integration", "cargos"),
+                                placeholder: "Um item por linha"
+                            }),
+                            e(
+                                "span",
+                                { className: "form-field-description" },
+                                "Use a ordem desejada para exibição nos formulários."
+                            )
+                        ),
+                        e(
+                            "label",
+                            { className: "form-field", htmlFor: "config-turnos" },
+                            renderFieldLabel("Turnos disponíveis", "turno"),
+                            e("textarea", {
+                                id: "config-turnos",
+                                rows: 4,
+                                value: configData.integration.turnos,
+                                onChange: handleConfigChange("integration", "turnos"),
+                                placeholder: "Um item por linha"
+                            }),
+                            e(
+                                "span",
+                                { className: "form-field-description" },
+                                "Esses valores alimentam o campo de turno na integração."
+                            )
+                        ),
+                        e(
+                            "label",
+                            { className: "form-field", htmlFor: "config-integracoes" },
+                            renderFieldLabel("Status de integração", "integracao"),
+                            e("textarea", {
+                                id: "config-integracoes",
+                                rows: 4,
+                                value: configData.integration.integracoes,
+                                onChange: handleConfigChange("integration", "integracoes"),
+                                placeholder: "Um item por linha"
+                            }),
+                            e(
+                                "span",
+                                { className: "form-field-description" },
+                                "Ex.: Sim, Não, Em andamento"
+                            )
+                        )
+                    )
+                ),
+                e(
+                    "section",
+                    { className: "field-section" },
+                    e(
+                        "div",
+                        { className: "field-section__header field-section__header--configuracao" },
+                        e(
+                            "div",
+                            { className: "icon-badge icon-badge--danger", "aria-hidden": "true" },
+                            e("span", { className: "icon-badge__glyph" }, "OC")
+                        ),
+                        e(
+                            "div",
+                            { className: "field-section__titles" },
+                            e(
+                                "div",
+                                { className: "field-section__title-shell" },
+                                e("span", {
+                                    className: "field-section__hover field-section__hover--upper",
+                                    "aria-hidden": "true"
+                                }),
+                                e("span", {
+                                    className: "field-section__hover field-section__hover--lower",
+                                    "aria-hidden": "true"
+                                }),
+                                renderSectionTitle("Listas de Ocorrência", "config-ocorrencia")
+                            ),
+                            e(
+                                "span",
+                                { className: "field-section__subtitle" },
+                                "Adapte os valores usados no registro de ocorrências"
+                            )
+                        )
+                    ),
+                    e(
+                        "div",
+                        { className: "field-section__grid field-section__grid--cols-2" },
+                        e(
+                            "label",
+                            { className: "form-field", htmlFor: "config-turnos-ocorrencia" },
+                            renderFieldLabel("Turnos monitorados", "turno"),
+                            e("textarea", {
+                                id: "config-turnos-ocorrencia",
+                                rows: 4,
+                                value: configData.occurrence.turnos,
+                                onChange: handleConfigChange("occurrence", "turnos"),
+                                placeholder: "Um item por linha"
+                            }),
+                            e(
+                                "span",
+                                { className: "form-field-description" },
+                                "Inclua os turnos que podem receber ocorrências."
+                            )
+                        ),
+                        e(
+                            "label",
+                            { className: "form-field", htmlFor: "config-graus-ocorrencia" },
+                            renderFieldLabel("Escala de gravidade", "gravidade"),
+                            e("textarea", {
+                                id: "config-graus-ocorrencia",
+                                rows: 6,
+                                value: configData.occurrence.graus,
+                                onChange: handleConfigChange("occurrence", "graus"),
+                                placeholder: "Um item por linha"
+                            }),
+                            e(
+                                "span",
+                                { className: "form-field-description" },
+                                "Ex.: 0 - Muito baixo"
+                            )
+                        )
+                    )
+                ),
+                renderActionBar(
+                    metadata.primaryActionLabel,
+                    metadata.secondaryActionLabel,
+                    metadata.note,
+                    handleResetConfigs
+                )
+            );
+        };
+
+        const renderActionBar = function (primaryLabel, secondaryLabel, noteLabel, secondaryHandler) {
+            return e(
+                "div",
+                { className: "action-bar" },
+                e(
+                    "div",
+                    { className: "action-buttons" },
+                    e(
+                        "button",
+                        { type: "submit", className: "primary-button" },
+                        primaryLabel
+                    ),
+                    secondaryLabel
+                        ? e(
+                              "button",
+                              {
+                                  type: "button",
+                                  className: "ghost-button",
+                                  onClick: secondaryHandler || null
+                              },
+                              secondaryLabel
+                          )
+                        : null
+                ),
+                noteLabel ? e("span", { className: "action-note" }, noteLabel) : null
+            );
+        };
+
+        const renderIntegrationForm = function () {
+            return e(
+                "form",
+                { className: "integration-form", onSubmit: handleIntegrationSubmit },
+                e(
+                    "div",
+                    { className: "field-section-pair" },
+                    renderIdentificationSection(formData, handleIntegrationChange),
+                    renderRoleSection(formData, handleIntegrationChange, {})
+                ),
+                renderIntegrationManagementSection(),
+                renderObservationsSection(formData, handleIntegrationChange, {}),
+                renderActionBar(
+                    metadata.primaryActionLabel,
+                    metadata.secondaryActionLabel,
+                    metadata.note,
+                    handleNavigateToTable
+                )
+            );
+        };
+
+        const renderOccurrenceForm = function () {
+            return e(
+                "form",
+                { className: "integration-form", onSubmit: handleOccurrenceSubmit },
+                e(
+                    "div",
+                    { className: "field-section-pair" },
+                    renderIdentificationSection(occurrenceData, handleOccurrenceChange),
+                    renderRoleSection(occurrenceData, handleOccurrenceChange, {
+                        subtitleText: "Associe o setor e o cargo vinculados à ocorrência"
+                    })
+                ),
+                renderOccurrenceDetailsSection(),
+                renderObservationsSection(occurrenceData, handleOccurrenceChange, {
+                    headerClass: "field-section__header--ocorrencia",
+                    badgeModifier: "icon-badge--danger",
+                    badgeGlyph: "OC",
+                    titleText: "Relato da ocorrência",
+                    titleKey: "ocorrencia-relato",
+                    subtitleText: "Detalhe o que aconteceu, impactos percebidos e ações imediatas",
+                    textareaId: "observacaoOcorrencia",
+                    placeholder: "Descreva o ocorrido com clareza, incluindo volumes, causas e ações tomadas."
+                }),
+                renderActionBar(
+                    metadata.primaryActionLabel,
+                    metadata.secondaryActionLabel,
+                    metadata.note,
+                    handleConsultHistory
+                )
+            );
         };
 
         return e(
             "div",
-            { className: "app-container" },
+            { className: "app-container app-container--" + activeView },
             e(
                 "header",
                 { className: "app-header" },
-                e("h1", null, "Controle de integração de colaboradores Martins"),
-                e(
-                    "p",
-                    null,
-                    "Cadastre novos colaboradores no sistema"
-                )
+                e("h1", null, metadata.title),
+                e("p", null, metadata.description)
             ),
             e(
                 "main",
                 { className: "form-wrapper" },
-                e(
-                    "form",
-                    { className: "integration-form", onSubmit: handleSubmit },
-                    e(
-                        "div",
-                        { className: "field-section-pair" },
-                        e(
-                            "section",
-                            { className: "field-section" },
-                            e(
-                                "div",
-                                { className: "field-section__header field-section__header--identificacao" },
-                                e(
-                                    "div",
-                                    { className: "icon-badge icon-badge--blue", "aria-hidden": "true" },
-                                    e("span", { className: "icon-badge__glyph" }, "ID")
-                                ),
-                                e(
-                                    "div",
-                                    { className: "field-section__titles" },
-                                    e(
-                                        "div",
-                                        { className: "field-section__title-shell" },
-                                        e("span", {
-                                            className: "field-section__hover field-section__hover--upper",
-                                            "aria-hidden": "true"
-                                        }),
-                                        e("span", {
-                                            className: "field-section__hover field-section__hover--lower",
-                                            "aria-hidden": "true"
-                                        }),
-                                        renderSectionTitle("Identificação do Colaborador", "identificacao")
-                                    ),
-                                    e(
-                                        "span",
-                                        { className: "field-section__subtitle" },
-                                        "Informe matrícula e nome completo"
-                                    )
-                                )
-                            ),
-                            e(
-                                "div",
-                                { className: "field-section__grid field-section__grid--cols-2" },
-                                e(
-                                    "label",
-                                    { className: "form-field", htmlFor: "matricula" },
-                                    renderFieldLabel("Matrícula", "matricula"),
-                                    e("input", {
-                                        id: "matricula",
-                                        type: "number",
-                                        inputMode: "numeric",
-                                        min: "0",
-                                        placeholder: "Ex.: 12345",
-                                        value: formData.matricula,
-                                        onChange: handleChange("matricula"),
-                                        required: true
-                                    })
-                                ),
-                                e(
-                                    "label",
-                                    { className: "form-field", htmlFor: "nome" },
-                                    renderFieldLabel("Nome do colaborador", "nome"),
-                                    e("input", {
-                                        id: "nome",
-                                        type: "text",
-                                        placeholder: "Ex.: Maria Silva Santos",
-                                        value: formData.nome,
-                                        onChange: handleChange("nome"),
-                                        required: true,
-                                        maxLength: 120
-                                    })
-                                )
-                            )
-                        ),
-                        e(
-                            "section",
-                            { className: "field-section" },
-                            e(
-                                "div",
-                                { className: "field-section__header field-section__header--funcao" },
-                                e(
-                                    "div",
-                                    { className: "icon-badge", "aria-hidden": "true" },
-                                    e("span", { className: "icon-badge__glyph" }, "FL")
-                                ),
-                                e(
-                                    "div",
-                                    { className: "field-section__titles" },
-                                    e(
-                                        "div",
-                                        { className: "field-section__title-shell" },
-                                        e("span", {
-                                            className: "field-section__hover field-section__hover--upper",
-                                            "aria-hidden": "true"
-                                        }),
-                                        e("span", {
-                                            className: "field-section__hover field-section__hover--lower",
-                                            "aria-hidden": "true"
-                                        }),
-                                        renderSectionTitle("Função e localização", "funcao")
-                                    ),
-                                    e(
-                                        "span",
-                                        { className: "field-section__subtitle" },
-                                        "Defina setor e cargo do colaborador"
-                                    )
-                                )
-                            ),
-                            e(
-                                "div",
-                                { className: "field-section__grid field-section__grid--cols-2" },
-                                e(
-                                    "label",
-                                    { className: "form-field", htmlFor: "setor" },
-                                    renderFieldLabel("Setor", "setor"),
-                                    e(
-                                        "select",
-                                        {
-                                            id: "setor",
-                                            value: formData.setor,
-                                            onChange: handleChange("setor"),
-                                            required: true
-                                        },
-                                        SETORES.map(buildOption)
-                                    )
-                                ),
-                                e(
-                                    "label",
-                                    { className: "form-field", htmlFor: "cargo" },
-                                    renderFieldLabel("Cargo", "cargo"),
-                                    e(
-                                        "select",
-                                        {
-                                            id: "cargo",
-                                            value: formData.cargo,
-                                            onChange: handleChange("cargo"),
-                                            required: true
-                                        },
-                                        CARGOS.map(buildOption)
-                                    )
-                                )
-                            )
-                        )
-                    ),
-                    e(
-                        "section",
-                        { className: "field-section" },
-                        e(
-                            "div",
-                            { className: "field-section__header field-section__header--gestao" },
-                            e(
-                                "div",
-                                { className: "icon-badge icon-badge--green", "aria-hidden": "true" },
-                                e("span", { className: "icon-badge__glyph" }, "GI")
-                            ),
-                            e(
-                                "div",
-                                { className: "field-section__titles" },
-                                e(
-                                    "div",
-                                    { className: "field-section__title-shell" },
-                                    e("span", {
-                                        className: "field-section__hover field-section__hover--upper",
-                                        "aria-hidden": "true"
-                                    }),
-                                    e("span", {
-                                        className: "field-section__hover field-section__hover--lower",
-                                        "aria-hidden": "true"
-                                    }),
-                                    renderSectionTitle("Gestão e integração", "gestao")
-                                ),
-                                e(
-                                    "span",
-                                    { className: "field-section__subtitle" },
-                                    "Controle de turno, supervisor e integração"
-                                )
-                            )
-                        ),
-                        e(
-                            "div",
-                            { className: "field-section__grid field-section__grid--cols-2" },
-                            e(
-                                "label",
-                                { className: "form-field", htmlFor: "turno" },
-                                renderFieldLabel("Turno", "turno"),
-                                e(
-                                    "select",
-                                    {
-                                        id: "turno",
-                                        value: formData.turno,
-                                        onChange: handleChange("turno"),
-                                        required: true
-                                    },
-                                    TURNOS.map(buildOption)
-                                )
-                            ),
-                            e(
-                                "label",
-                                { className: "form-field", htmlFor: "integracao" },
-                                renderFieldLabel("Integração", "integracao"),
-                                e(
-                                    "select",
-                                    {
-                                        id: "integracao",
-                                        value: formData.integracao,
-                                        onChange: handleChange("integracao"),
-                                        required: true
-                                    },
-                                    INTEGRACOES.map(buildOption)
-                                )
-                            ),
-                            e(
-                                "label",
-                                { className: "form-field", htmlFor: "supervisor" },
-                                renderFieldLabel("Supervisor", "supervisor"),
-                                e("input", {
-                                    id: "supervisor",
-                                    type: "text",
-                                    placeholder: "Nome do supervisor",
-                                    value: formData.supervisor,
-                                    onChange: handleChange("supervisor"),
-                                    required: true,
-                                    maxLength: 120
-                                }),
-                                e(
-                                    "span",
-                                    { className: "form-field-description" },
-                                    "Será salvo automaticamente em maiúsculas"
-                                )
-                            ),
-                            e(
-                                "label",
-                                { className: "form-field", htmlFor: "data" },
-                                renderFieldLabel("Data", "data"),
-                                e("input", {
-                                    id: "data",
-                                    type: "date",
-                                    value: formData.data,
-                                    onChange: handleChange("data"),
-                                    required: true
-                                })
-                            )
-                        )
-                    ),
-                    e(
-                        "section",
-                        { className: "field-section" },
-                        e(
-                            "div",
-                            { className: "field-section__header field-section__header--observacoes" },
-                            e(
-                                "div",
-                                { className: "icon-badge icon-badge--violet", "aria-hidden": "true" },
-                                e("span", { className: "icon-badge__glyph" }, "OB")
-                            ),
-                            e(
-                                "div",
-                                { className: "field-section__titles" },
-                                e(
-                                    "div",
-                                    { className: "field-section__title-shell" },
-                                    e("span", {
-                                        className: "field-section__hover field-section__hover--upper",
-                                        "aria-hidden": "true"
-                                    }),
-                                    e("span", {
-                                        className: "field-section__hover field-section__hover--lower",
-                                        "aria-hidden": "true"
-                                    }),
-                                    renderSectionTitle("Observações adicionais", "observacoes")
-                                ),
-                                e(
-                                    "span",
-                                    { className: "field-section__subtitle" },
-                                    "Contextualize detalhes relevantes do colaborador"
-                                )
-                            )
-                        ),
-                        e(
-                            "div",
-                            { className: "field-section__grid field-section__grid--cols-1" },
-                            e(
-                                "label",
-                                { className: "form-field", htmlFor: "observacao" },
-                                renderFieldLabel("Observação", "observacao"),
-                                e("textarea", {
-                                    id: "observacao",
-                                    placeholder: "Digite observações relevantes sobre o colaborador ou processo...",
-                                    value: formData.observacao || "",
-                                    onChange: handleChange("observacao"),
-                                    maxLength: 400
-                                })
-                            )
-                        )
-                    ),
-                    e(
-                        "div",
-                        { className: "action-bar" },
-                        e(
-                            "div",
-                            { className: "action-buttons" },
-                            e(
-                                "button",
-                                { type: "submit", className: "primary-button" },
-                                "Salvar registro"
-                            ),
-                            e(
-                                "button",
-                                { type: "button", className: "ghost-button" },
-                                "Ir para tabela"
-                            )
-                        ),
-                        e(
-                            "span",
-                            { className: "action-note" },
-                            "Todos os campos são obrigatórios"
-                        )
-                    )
-                )
+                activeView === "integration"
+                    ? renderIntegrationForm()
+                    : activeView === "occurrence"
+                    ? renderOccurrenceForm()
+                    : renderConfigurationForm()
             )
         );
     }
@@ -1058,5 +1836,6 @@
     const root = ReactDOM.createRoot(rootElement);
     root.render(e(App));
 
+    initializeTopbarNavigation();
     initializeThemeSwitcher();
 })();
