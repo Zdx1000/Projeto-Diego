@@ -1,32 +1,36 @@
 (function () {
     const e = React.createElement;
 
-    const SETORES = [
-        "Produção",
-        "Controle de estoque",
-        "Expedição",
-        "Qualidade",
-        "Recebimento",
-        "SME"
-    ];
+    const DEFAULT_INTEGRATION_OPTIONS = {
+        setores: [
+            "Produção",
+            "Controle de estoque",
+            "Expedição",
+            "Qualidade",
+            "Recebimento",
+            "SME"
+        ],
+        cargos: ["Operador 1", "Operador 2", "Operador 3"],
+        turnos: ["1° Turno", "2° Turno"],
+        integracoes: ["Sim", "Não"]
+    };
 
-    const INTEGRACOES = ["Sim", "Não"];
-    const TURNOS = ["1° Turno", "2° Turno"];
-    const CARGOS = ["Operador 1", "Operador 2", "Operador 3"];
-    const TURNOS_OCORRENCIA = ["1° Turno", "2° Turno", "3° Turno"];
-    const GRAUS_OCORRENCIA = [
-        { value: "0", label: "0 - Muito baixo" },
-        { value: "1", label: "1 - Baixo" },
-        { value: "2", label: "2 - Baixo moderado" },
-        { value: "3", label: "3 - Atenção" },
-        { value: "4", label: "4 - Relevante" },
-        { value: "5", label: "5 - Moderado" },
-        { value: "6", label: "6 - Significativo" },
-        { value: "7", label: "7 - Alto" },
-        { value: "8", label: "8 - Muito alto" },
-        { value: "9", label: "9 - Crítico" },
-        { value: "10", label: "10 - Muito grave" }
-    ];
+    const DEFAULT_OCCURRENCE_OPTIONS = {
+        turnos: ["1° Turno", "2° Turno", "3° Turno"],
+        graus: [
+            "0 - Muito baixo",
+            "1 - Baixo",
+            "2 - Baixo moderado",
+            "3 - Atenção",
+            "4 - Relevante",
+            "5 - Moderado",
+            "6 - Significativo",
+            "7 - Alto",
+            "8 - Muito alto",
+            "9 - Crítico",
+            "10 - Muito grave"
+        ]
+    };
 
     const THEMES = [
         {
@@ -96,6 +100,82 @@
             preview: ["#45d97c", "#20995b"]
         }
     ];
+
+    const sanitizeList = function (items, fallback) {
+        const fallbackArray = Array.isArray(fallback) ? fallback : [];
+
+        const materialized = (function () {
+            if (Array.isArray(items)) {
+                return items;
+            }
+
+            if (typeof items === "string") {
+                return items.split(/[\r\n,]+/);
+            }
+
+            if (items && typeof items[Symbol.iterator] === "function") {
+                return Array.from(items);
+            }
+
+            return fallbackArray;
+        })();
+
+        const cleaned = materialized
+            .map(function (entry) {
+                return String(entry || "").trim();
+            })
+            .filter(function (entry) {
+                return entry.length > 0;
+            });
+
+        return cleaned.length ? cleaned : fallbackArray.slice();
+    };
+
+    const parseDegreeOptions = function (items) {
+        if (!Array.isArray(items)) {
+            return [];
+        }
+
+        return items.map(function (entry, index) {
+            const label = String(entry || "").trim();
+            if (!label) {
+                return { value: String(index), label: "" };
+            }
+
+            const separatorIndex = label.indexOf("-");
+            if (separatorIndex === -1) {
+                return { value: label, label: label };
+            }
+
+            const value = label.slice(0, separatorIndex).trim();
+            return { value: value || String(index), label: label };
+        });
+    };
+
+    const normalizeIntegrationOptions = function (options) {
+        const source = options || {};
+        return {
+            setores: sanitizeList(source.setores, DEFAULT_INTEGRATION_OPTIONS.setores),
+            cargos: sanitizeList(source.cargos, DEFAULT_INTEGRATION_OPTIONS.cargos),
+            turnos: sanitizeList(source.turnos, DEFAULT_INTEGRATION_OPTIONS.turnos),
+            integracoes: sanitizeList(source.integracoes, DEFAULT_INTEGRATION_OPTIONS.integracoes)
+        };
+    };
+
+    const normalizeOccurrenceOptions = function (options) {
+        const source = options || {};
+        return {
+            turnos: sanitizeList(source.turnos, DEFAULT_OCCURRENCE_OPTIONS.turnos),
+            graus: sanitizeList(source.graus, DEFAULT_OCCURRENCE_OPTIONS.graus)
+        };
+    };
+
+    const ensureFromList = function (value, list) {
+        if (!Array.isArray(list) || !list.length) {
+            return "";
+        }
+        return list.indexOf(value) !== -1 ? value : list[0];
+    };
 
     const THEME_STORAGE_KEY = "projetoDiego.theme";
     const THEME_CLASS_LIST = THEMES
@@ -575,47 +655,58 @@
         );
     };
 
-    const buildDefaultFormState = function () {
+    const buildDefaultFormState = function (options) {
+        const setores = Array.isArray(options.setores) ? options.setores : [];
+        const integracoes = Array.isArray(options.integracoes) ? options.integracoes : [];
+        const turnos = Array.isArray(options.turnos) ? options.turnos : [];
+        const cargos = Array.isArray(options.cargos) ? options.cargos : [];
+
         return {
             matricula: "",
             nome: "",
-            setor: SETORES[0],
-            integracao: INTEGRACOES[0],
+            setor: setores[0] || "",
+            integracao: integracoes[0] || "",
             supervisor: "",
-            turno: TURNOS[0],
-            cargo: CARGOS[0],
+            turno: turnos[0] || "",
+            cargo: cargos[0] || "",
             data: "",
             observacao: ""
         };
     };
 
-    const buildDefaultOccurrenceState = function () {
+    const buildDefaultOccurrenceState = function (integrationOptions, occurrenceOptions) {
+        const setores = Array.isArray(integrationOptions.setores) ? integrationOptions.setores : [];
+        const cargos = Array.isArray(integrationOptions.cargos) ? integrationOptions.cargos : [];
+        const turnos = Array.isArray(occurrenceOptions.turnos) ? occurrenceOptions.turnos : [];
+        const grauOptions = parseDegreeOptions(occurrenceOptions.graus);
+
         return {
             matricula: "",
             nome: "",
-            setor: SETORES[0],
-            cargo: CARGOS[0],
-            turno: TURNOS_OCORRENCIA[0],
+            setor: setores[0] || "",
+            cargo: cargos[0] || "",
+            turno: turnos[0] || "",
             supervisor: "",
-            grau: GRAUS_OCORRENCIA[0].value,
+            grau: grauOptions[0] ? grauOptions[0].value : "",
             volumes: "",
             observacao: ""
         };
     };
 
-    const buildDefaultConfigState = function () {
+    const buildDefaultConfigState = function (optionsSnapshot) {
+        const integration = optionsSnapshot.integration || {};
+        const occurrence = optionsSnapshot.occurrence || {};
+
         return {
             integration: {
-                setores: SETORES.join("\n"),
-                cargos: CARGOS.join("\n"),
-                turnos: TURNOS.join("\n"),
-                integracoes: INTEGRACOES.join("\n")
+                setores: (integration.setores || []).join("\n"),
+                cargos: (integration.cargos || []).join("\n"),
+                turnos: (integration.turnos || []).join("\n"),
+                integracoes: (integration.integracoes || []).join("\n")
             },
             occurrence: {
-                turnos: TURNOS_OCORRENCIA.join("\n"),
-                graus: GRAUS_OCORRENCIA.map(function (option) {
-                    return option.label;
-                }).join("\n")
+                turnos: (occurrence.turnos || []).join("\n"),
+                graus: (occurrence.graus || []).join("\n")
             }
         };
     };
@@ -932,6 +1023,12 @@
     };
 
     function App() {
+        const [integrationOptions, setIntegrationOptions] = React.useState(function () {
+            return normalizeIntegrationOptions(DEFAULT_INTEGRATION_OPTIONS);
+        });
+        const [occurrenceOptions, setOccurrenceOptions] = React.useState(function () {
+            return normalizeOccurrenceOptions(DEFAULT_OCCURRENCE_OPTIONS);
+        });
         const [activeView, setActiveView] = React.useState(function () {
             const storedView = safeStorageGet(VIEW_STORAGE_KEY);
             if (storedView && VALID_VIEW_IDS.indexOf(storedView) !== -1) {
@@ -939,9 +1036,21 @@
             }
             return "integration";
         });
-        const [formData, setFormData] = React.useState(buildDefaultFormState);
-        const [occurrenceData, setOccurrenceData] = React.useState(buildDefaultOccurrenceState);
-        const [configData, setConfigData] = React.useState(buildDefaultConfigState);
+        const [formData, setFormData] = React.useState(function () {
+            return buildDefaultFormState(DEFAULT_INTEGRATION_OPTIONS);
+        });
+        const [occurrenceData, setOccurrenceData] = React.useState(function () {
+            return buildDefaultOccurrenceState(DEFAULT_INTEGRATION_OPTIONS, DEFAULT_OCCURRENCE_OPTIONS);
+        });
+        const [configData, setConfigData] = React.useState(function () {
+            return buildDefaultConfigState({
+                integration: DEFAULT_INTEGRATION_OPTIONS,
+                occurrence: DEFAULT_OCCURRENCE_OPTIONS
+            });
+        });
+        const [integrationStatus, setIntegrationStatus] = React.useState(null);
+        const [occurrenceStatus, setOccurrenceStatus] = React.useState(null);
+        const [configStatus, setConfigStatus] = React.useState(null);
 
         const handleIntegrationChange = createChangeHandler(setFormData);
         const handleOccurrenceChange = createChangeHandler(setOccurrenceData);
@@ -969,42 +1078,127 @@
             return e("option", { value: option.value, key: option.value }, option.label);
         };
 
-        const handleIntegrationSubmit = function (event) {
+        const handleIntegrationSubmit = async function (event) {
             event.preventDefault();
 
-            const payload = Object.assign({}, formData, {
-                matricula: formData.matricula ? parseInt(formData.matricula, 10) : null,
-                data: formData.data || null
+            const sanitized = {
+                matricula: (formData.matricula || "").trim(),
+                nome: (formData.nome || "").trim(),
+                setor: formData.setor,
+                integracao: formData.integracao,
+                supervisor: (formData.supervisor || "").trim(),
+                turno: formData.turno,
+                cargo: formData.cargo,
+                data: formData.data || null,
+                observacao: (formData.observacao || "").trim()
+            };
+
+            const payload = Object.assign({}, sanitized, {
+                supervisor: sanitized.supervisor.toUpperCase(),
+                submitted_at: new Date().toISOString()
             });
 
             console.group("Integração submetida");
             console.table(payload);
             console.groupEnd();
 
-            setFormData(buildDefaultFormState());
+            setIntegrationStatus({ type: "pending", message: "Enviando dados para o backend..." });
+
+            try {
+                const response = await fetch("/api/integration", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const responseBody = await response.json().catch(function () {
+                    return null;
+                });
+
+                if (!response.ok) {
+                    const errorMessage = responseBody && responseBody.error ? responseBody.error : "Falha ao enviar os dados.";
+                    throw new Error(errorMessage);
+                }
+
+                const nextOptions = responseBody && responseBody.options
+                    ? normalizeIntegrationOptions(responseBody.options)
+                    : integrationOptions;
+
+                setIntegrationOptions(nextOptions);
+                setIntegrationStatus({
+                    type: "success",
+                    message:
+                        "Integração registrada com sucesso no backend." +
+                        (responseBody && responseBody.record_id ? " ID " + responseBody.record_id : "")
+                });
+
+                setFormData(buildDefaultFormState(nextOptions));
+            } catch (error) {
+                const message = error && error.message ? error.message : "Erro inesperado ao enviar os dados.";
+                setIntegrationStatus({ type: "error", message: message });
+            }
         };
 
-        const handleOccurrenceSubmit = function (event) {
+        const handleOccurrenceSubmit = async function (event) {
             event.preventDefault();
 
-            const matriculaNumber = occurrenceData.matricula ? parseInt(occurrenceData.matricula, 10) : null;
-            const grauNumber = occurrenceData.grau ? parseInt(occurrenceData.grau, 10) : null;
-            const volumeNumber = occurrenceData.volumes !== "" ? parseInt(occurrenceData.volumes, 10) : null;
-
-            const payload = Object.assign({}, occurrenceData, {
-                matricula: Number.isNaN(matriculaNumber) ? null : matriculaNumber,
-                grau: Number.isNaN(grauNumber) ? null : grauNumber,
-                volumes: Number.isNaN(volumeNumber) ? null : volumeNumber
-            });
+            const sanitized = {
+                matricula: (occurrenceData.matricula || "").trim(),
+                nome: (occurrenceData.nome || "").trim(),
+                setor: occurrenceData.setor,
+                cargo: occurrenceData.cargo,
+                turno: occurrenceData.turno,
+                supervisor: (occurrenceData.supervisor || "").trim(),
+                grau: occurrenceData.grau,
+                volumes: occurrenceData.volumes,
+                observacao: (occurrenceData.observacao || "").trim()
+            };
 
             console.group("Ocorrência registrada");
-            console.table(payload);
+            console.table(sanitized);
             console.groupEnd();
 
-            setOccurrenceData(buildDefaultOccurrenceState());
+            setOccurrenceStatus({ type: "pending", message: "Salvando ocorrência no backend..." });
+
+            try {
+                const response = await fetch("/api/occurrence", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(sanitized)
+                });
+
+                const responseBody = await response.json().catch(function () {
+                    return null;
+                });
+
+                if (!response.ok) {
+                    const errorMessage = responseBody && responseBody.error ? responseBody.error : "Falha ao registrar ocorrência.";
+                    throw new Error(errorMessage);
+                }
+
+                const nextOptions = responseBody && responseBody.options
+                    ? normalizeOccurrenceOptions(responseBody.options)
+                    : occurrenceOptions;
+
+                setOccurrenceOptions(nextOptions);
+                setOccurrenceStatus({
+                    type: "success",
+                    message: "Ocorrência registrada com sucesso." +
+                        (responseBody && responseBody.record_id ? " ID " + responseBody.record_id : "")
+                });
+
+                setOccurrenceData(buildDefaultOccurrenceState(integrationOptions, nextOptions));
+            } catch (error) {
+                const message = error && error.message ? error.message : "Erro inesperado ao registrar a ocorrência.";
+                setOccurrenceStatus({ type: "error", message: message });
+            }
         };
 
-        const handleConfigSubmit = function (event) {
+        const handleConfigSubmit = async function (event) {
             event.preventDefault();
 
             const parseList = function (text) {
@@ -1035,16 +1229,96 @@
                 }
             };
 
-            console.group("Configurações atualizadas");
-            console.log("Integração", payload.integration);
-            console.log("Ocorrência", payload.occurrence);
-            console.groupEnd();
+            setConfigStatus({ type: "pending", message: "Salvando configurações no backend..." });
+
+            try {
+                const response = await fetch("/api/configuration", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const snapshot = await response.json().catch(function () {
+                    return null;
+                });
+
+                if (!response.ok || !snapshot) {
+                    const errorMessage = snapshot && snapshot.error ? snapshot.error : "Falha ao atualizar as configurações.";
+                    throw new Error(errorMessage);
+                }
+
+                const nextIntegrationOptions = normalizeIntegrationOptions(snapshot.integration);
+                const nextOccurrenceOptions = normalizeOccurrenceOptions(snapshot.occurrence);
+
+                setIntegrationOptions(nextIntegrationOptions);
+                setOccurrenceOptions(nextOccurrenceOptions);
+                setConfigData(buildDefaultConfigState(snapshot));
+                setConfigStatus({ type: "success", message: "Configurações atualizadas com sucesso." });
+            } catch (error) {
+                const message = error && error.message ? error.message : "Erro inesperado ao atualizar as configurações.";
+                setConfigStatus({ type: "error", message: message });
+            }
         };
 
         const handleResetConfigs = function () {
-            setConfigData(buildDefaultConfigState());
-            console.info("As listas foram restauradas para os valores padrão.");
+            const snapshot = {
+                integration: DEFAULT_INTEGRATION_OPTIONS,
+                occurrence: DEFAULT_OCCURRENCE_OPTIONS
+            };
+            setConfigData(buildDefaultConfigState(snapshot));
+            setConfigStatus({
+                type: "info",
+                message: "Valores padrão restaurados localmente. Salve para persistir no backend."
+            });
         };
+
+        React.useEffect(function () {
+            let isMounted = true;
+            const controller = new AbortController();
+
+            const loadConfiguration = async function () {
+                try {
+                    const response = await fetch("/api/configuration", {
+                        method: "GET",
+                        signal: controller.signal
+                    });
+
+                    const snapshot = await response.json().catch(function () {
+                        return null;
+                    });
+
+                    if (!response.ok || !snapshot) {
+                        throw new Error("Não foi possível carregar as configurações iniciais.");
+                    }
+
+                    if (!isMounted) {
+                        return;
+                    }
+
+                    const nextIntegrationOptions = normalizeIntegrationOptions(snapshot.integration);
+                    const nextOccurrenceOptions = normalizeOccurrenceOptions(snapshot.occurrence);
+
+                    setIntegrationOptions(nextIntegrationOptions);
+                    setOccurrenceOptions(nextOccurrenceOptions);
+                    setFormData(buildDefaultFormState(nextIntegrationOptions));
+                    setOccurrenceData(
+                        buildDefaultOccurrenceState(nextIntegrationOptions, nextOccurrenceOptions)
+                    );
+                    setConfigData(buildDefaultConfigState(snapshot));
+                } catch (error) {
+                    console.warn(error instanceof Error ? error.message : error);
+                }
+            };
+
+            loadConfiguration();
+
+            return function () {
+                isMounted = false;
+                controller.abort();
+            };
+        }, []);
 
         React.useEffect(function () {
             const handleViewChange = function (event) {
@@ -1081,6 +1355,112 @@
                 })
             );
         }, [activeView]);
+
+        React.useEffect(
+            function () {
+                if (!integrationStatus || integrationStatus.type !== "success") {
+                    return undefined;
+                }
+
+                const timeoutId = window.setTimeout(function () {
+                    setIntegrationStatus(null);
+                }, 3500);
+
+                return function () {
+                    window.clearTimeout(timeoutId);
+                };
+            },
+            [integrationStatus]
+        );
+
+        React.useEffect(
+            function () {
+                if (!occurrenceStatus || occurrenceStatus.type !== "success") {
+                    return undefined;
+                }
+
+                const timeoutId = window.setTimeout(function () {
+                    setOccurrenceStatus(null);
+                }, 3500);
+
+                return function () {
+                    window.clearTimeout(timeoutId);
+                };
+            },
+            [occurrenceStatus]
+        );
+
+        React.useEffect(
+            function () {
+                if (!configStatus || configStatus.type !== "success") {
+                    return undefined;
+                }
+
+                const timeoutId = window.setTimeout(function () {
+                    setConfigStatus(null);
+                }, 3500);
+
+                return function () {
+                    window.clearTimeout(timeoutId);
+                };
+            },
+            [configStatus]
+        );
+
+        React.useEffect(
+            function () {
+                setFormData(function (previous) {
+                    const next = Object.assign({}, previous, {
+                        setor: ensureFromList(previous.setor, integrationOptions.setores),
+                        integracao: ensureFromList(previous.integracao, integrationOptions.integracoes),
+                        turno: ensureFromList(previous.turno, integrationOptions.turnos),
+                        cargo: ensureFromList(previous.cargo, integrationOptions.cargos)
+                    });
+
+                    if (
+                        next.setor === previous.setor &&
+                        next.integracao === previous.integracao &&
+                        next.turno === previous.turno &&
+                        next.cargo === previous.cargo
+                    ) {
+                        return previous;
+                    }
+
+                    return next;
+                });
+            },
+            [integrationOptions]
+        );
+
+        React.useEffect(
+            function () {
+                const degreeOptions = parseDegreeOptions(occurrenceOptions.graus);
+                const degreeValues = degreeOptions.map(function (option) {
+                    return option.value;
+                });
+
+                setOccurrenceData(function (previous) {
+                    const next = Object.assign({}, previous, {
+                        setor: ensureFromList(previous.setor, integrationOptions.setores),
+                        cargo: ensureFromList(previous.cargo, integrationOptions.cargos),
+                        turno: ensureFromList(previous.turno, occurrenceOptions.turnos),
+                        grau: ensureFromList(previous.grau, degreeValues)
+                    });
+
+                    if (
+                        next.setor === previous.setor &&
+                        next.cargo === previous.cargo &&
+                        next.turno === previous.turno &&
+                        next.grau === previous.grau
+                    ) {
+                        return previous;
+                    }
+
+                    return next;
+                });
+            },
+            [integrationOptions, occurrenceOptions]
+        );
 
         const handleNavigateToTable = function () {
             console.info("A navegação para a tabela será implementada em uma etapa futura.");
@@ -1229,7 +1609,7 @@
                                 onChange: changeHandler("setor"),
                                 required: true
                             },
-                            SETORES.map(buildOption)
+                            (integrationOptions.setores || []).map(buildOption)
                         )
                     ),
                     e(
@@ -1244,7 +1624,7 @@
                                 onChange: changeHandler("cargo"),
                                 required: true
                             },
-                            CARGOS.map(buildOption)
+                            (integrationOptions.cargos || []).map(buildOption)
                         )
                     )
                 )
@@ -1301,7 +1681,7 @@
                                 onChange: handleIntegrationChange("turno"),
                                 required: true
                             },
-                            TURNOS.map(buildOption)
+                            (integrationOptions.turnos || []).map(buildOption)
                         )
                     ),
                     e(
@@ -1316,7 +1696,7 @@
                                 onChange: handleIntegrationChange("integracao"),
                                 required: true
                             },
-                            INTEGRACOES.map(buildOption)
+                            (integrationOptions.integracoes || []).map(buildOption)
                         )
                     ),
                     e(
@@ -1404,7 +1784,7 @@
                                 onChange: handleOccurrenceChange("turno"),
                                 required: true
                             },
-                            TURNOS_OCORRENCIA.map(buildOption)
+                            (occurrenceOptions.turnos || []).map(buildOption)
                         )
                     ),
                     e(
@@ -1438,7 +1818,7 @@
                                 onChange: handleOccurrenceChange("grau"),
                                 required: true
                             },
-                            GRAUS_OCORRENCIA.map(buildLabeledOption)
+                            parseDegreeOptions(occurrenceOptions.graus).map(buildLabeledOption)
                         ),
                         e(
                             "span",
@@ -1541,6 +1921,17 @@
             return e(
                 "form",
                 { className: "integration-form", onSubmit: handleConfigSubmit },
+                configStatus
+                    ? e(
+                          "div",
+                          {
+                              className:
+                                  "form-status form-status--" + (configStatus.type || "info"),
+                              role: configStatus.type === "error" ? "alert" : "status"
+                          },
+                          configStatus.message
+                      )
+                    : null,
                 e(
                     "section",
                     { className: "field-section" },
@@ -1762,6 +2153,17 @@
             return e(
                 "form",
                 { className: "integration-form", onSubmit: handleIntegrationSubmit },
+                integrationStatus
+                    ? e(
+                          "div",
+                          {
+                              className:
+                                  "form-status form-status--" + (integrationStatus.type || "info"),
+                              role: integrationStatus.type === "error" ? "alert" : "status"
+                          },
+                          integrationStatus.message
+                      )
+                    : null,
                 e(
                     "div",
                     { className: "field-section-pair" },
@@ -1783,6 +2185,17 @@
             return e(
                 "form",
                 { className: "integration-form", onSubmit: handleOccurrenceSubmit },
+                occurrenceStatus
+                    ? e(
+                          "div",
+                          {
+                              className:
+                                  "form-status form-status--" + (occurrenceStatus.type || "info"),
+                              role: occurrenceStatus.type === "error" ? "alert" : "status"
+                          },
+                          occurrenceStatus.message
+                      )
+                    : null,
                 e(
                     "div",
                     { className: "field-section-pair" },

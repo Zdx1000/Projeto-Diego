@@ -589,6 +589,38 @@ body {
     background: var(--surface-color);
 }
 
+.form-status {
+    margin-bottom: 1.5rem;
+    padding: 0.85rem 1.1rem;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(var(--primary-rgb), 0.2);
+    background: rgba(var(--brand-frost-rgb), 0.9);
+    color: var(--primary-color);
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    box-shadow: inset 0 1px 0 rgba(var(--white-rgb), 0.75);
+}
+
+.form-status--pending {
+    border-color: rgba(var(--primary-rgb), 0.32);
+    background: rgba(var(--primary-rgb), 0.12);
+    color: var(--primary-color);
+}
+
+.form-status--success {
+    border-color: rgba(var(--glow-forest-rgb), 0.35);
+    background: rgba(var(--glow-forest-rgb), 0.12);
+    color: rgb(var(--glow-forest-rgb));
+}
+
+.form-status--error {
+    border-color: rgba(var(--glow-rose-rgb), 0.45);
+    background: rgba(var(--glow-rose-rgb), 0.12);
+    color: rgba(var(--glow-rose-rgb), 0.95);
+    box-shadow: 0 12px 24px rgba(var(--glow-rose-rgb), 0.18);
+}
+
 .field-section {
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
