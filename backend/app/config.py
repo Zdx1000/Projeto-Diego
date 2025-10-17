@@ -3,21 +3,42 @@
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Type
 
 
-_BACKEND_DIR = Path(__file__).resolve().parent.parent
-_DATA_DIR = _BACKEND_DIR / "data"
-_DEFAULT_DB_PATH = _DATA_DIR / "integration.db"
+def _runtime_base_dir() -> Path:
+    """Resolve a writable base directory for runtime assets.
+
+    When frozen (PyInstaller/auto-py-to-exe) we derive the directory of the
+    executable so the SQLite database lives alongside the generated binary. In a
+    regular Python environment we default to the project root (two levels up
+    from this file).
+    """
+
+    if getattr(sys, "frozen", False):  # running from packaged executable
+        return Path(sys.executable).resolve().parent
+
+    return Path(__file__).resolve().parents[2]
+
+
+def _default_database_path() -> Path:
+    override_path = os.getenv("DATABASE_PATH")
+    if override_path:
+        return Path(override_path).expanduser().resolve()
+
+    return (_runtime_base_dir() / "integration.db").resolve()
 
 
 def _default_database_url() -> str:
     override = os.getenv("DATABASE_URL")
     if override:
         return override
-    return f"sqlite:///{_DEFAULT_DB_PATH.as_posix()}"
+
+    db_path = _default_database_path()
+    return f"sqlite:///{db_path.as_posix()}"
 
 
 def _default_sql_echo() -> bool:
