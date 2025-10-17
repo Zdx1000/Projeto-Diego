@@ -100,6 +100,7 @@ def persist_occurrence(session: Session, payload: Dict[str, Any]) -> OccurrenceR
         turno=_required_string(payload.get("turno"), "turno"),
         supervisor=_required_string(payload.get("supervisor"), "supervisor").upper(),
         grau=_safe_int(payload.get("grau")),
+        grau_label=_safe_string(payload.get("grau_label")),
         volumes=_safe_int(payload.get("volumes")),
         observacao=_safe_string(payload.get("observacao")),
     )

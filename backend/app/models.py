@@ -37,6 +37,7 @@ class OccurrenceRecord(Base):
     turno: Mapped[str] = mapped_column(String(32), nullable=False)
     supervisor: Mapped[str] = mapped_column(String(128), nullable=False)
     grau: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    grau_label: Mapped[str | None] = mapped_column(String(128), nullable=True)
     volumes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     observacao: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

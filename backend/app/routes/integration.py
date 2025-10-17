@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from http import HTTPStatus
+from math import ceil
 from typing import Any, Dict
 
 from flask import Blueprint, jsonify, request
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 
 from ..database import session_scope
@@ -14,6 +16,20 @@ from ..services.ingestion import build_envelope, log_envelope, persist_integrati
 from ..models import IntegrationRecord
 
 integration_bp = Blueprint("integration", __name__, url_prefix="/api/integration")
+
+
+_SORTABLE_FIELDS = {
+    "id": IntegrationRecord.id,
+    "matricula": IntegrationRecord.matricula,
+    "nome": IntegrationRecord.nome,
+    "setor": IntegrationRecord.setor,
+    "cargo": IntegrationRecord.cargo,
+    "turno": IntegrationRecord.turno,
+    "integracao": IntegrationRecord.integracao,
+    "supervisor": IntegrationRecord.supervisor,
+    "data": IntegrationRecord.data,
+    "submitted_at": IntegrationRecord.submitted_at,
+}
 
 
 @integration_bp.get("")
@@ -68,6 +84,93 @@ def accept_submission() -> Any:
         return jsonify({"error": str(error)}), HTTPStatus.BAD_REQUEST
     except SQLAlchemyError:
         return jsonify({"error": "Erro ao salvar a integração."}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+@integration_bp.get("/records")
+def list_records() -> Any:
+    page_param = request.args.get("page", default="1")
+    size_param = request.args.get("page_size", default="10")
+    sort_by_param = request.args.get("sort_by", default="submitted_at")
+    sort_order_param = request.args.get("sort_order", default="desc")
+    search_param = request.args.get("search", default="").strip()
+
+    try:
+        page = max(int(page_param), 1)
+    except (TypeError, ValueError):
+        page = 1
+
+    try:
+        page_size = max(min(int(size_param), 50), 1)
+    except (TypeError, ValueError):
+        page_size = 10
+
+    with session_scope() as session:
+        filters = []
+        if search_param:
+            like_pattern = f"%{search_param}%"
+            filters.append(
+                or_(
+                    IntegrationRecord.matricula.ilike(like_pattern),
+                    IntegrationRecord.nome.ilike(like_pattern),
+                    IntegrationRecord.setor.ilike(like_pattern),
+                    IntegrationRecord.cargo.ilike(like_pattern),
+                    IntegrationRecord.turno.ilike(like_pattern),
+                    IntegrationRecord.integracao.ilike(like_pattern),
+                    IntegrationRecord.supervisor.ilike(like_pattern),
+                )
+            )
+
+        count_stmt = select(func.count()).select_from(IntegrationRecord)
+        data_stmt = select(IntegrationRecord)
+
+        if filters:
+            count_stmt = count_stmt.where(*filters)
+            data_stmt = data_stmt.where(*filters)
+
+        total_items = session.execute(count_stmt).scalar_one()
+
+        total_pages = ceil(total_items / page_size) if total_items else 0
+        if total_pages:
+            page = min(page, total_pages)
+        else:
+            page = 1
+
+        offset = (page - 1) * page_size
+
+        sort_column = _SORTABLE_FIELDS.get(sort_by_param, IntegrationRecord.submitted_at)
+        sort_order = sort_order_param.lower()
+        order_clause = sort_column.asc() if sort_order == "asc" else sort_column.desc()
+
+        data_stmt = data_stmt.order_by(order_clause).offset(offset).limit(page_size)
+        records = session.execute(data_stmt).scalars().all()
+
+    payload = {
+        "items": [_serialize_integration_record(record) for record in records],
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total_items": total_items,
+            "total_pages": total_pages or 1,
+        },
+    }
+
+    return jsonify(payload), HTTPStatus.OK
+
+
+def _serialize_integration_record(record: IntegrationRecord) -> Dict[str, Any]:
+    return {
+        "id": record.id,
+        "matricula": record.matricula,
+        "nome": record.nome,
+        "setor": record.setor,
+        "cargo": record.cargo,
+        "turno": record.turno,
+        "integracao": record.integracao,
+        "supervisor": record.supervisor,
+        "data": record.data.isoformat() if record.data else None,
+        "observacao": record.observacao,
+        "submitted_at": record.submitted_at.isoformat(),
+    }
 
 
 def _extract_payload() -> Dict[str, Any] | None:

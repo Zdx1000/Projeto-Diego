@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Iterator
 
 from flask import current_app
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 _engine = None
@@ -35,6 +35,7 @@ def init_app(app) -> None:
     from . import models  # noqa: F401
 
     Base.metadata.create_all(_engine)
+    _run_schema_upgrades(_engine)
 
 
 def get_engine():
@@ -76,3 +77,15 @@ def _ensure_sqlite_path(database_url: str) -> None:
     db_path = Path(path)
     if not db_path.parent.exists():
         db_path.parent.mkdir(parents=True, exist_ok=True)
+
+
+def _run_schema_upgrades(engine) -> None:
+    """Apply idempotent schema tweaks required for newer releases."""
+    if engine.dialect.name != "sqlite":
+        return
+
+    with engine.begin() as connection:
+        pragma = connection.execute(text("PRAGMA table_info(occurrence_records)")).fetchall()
+        column_names = {row[1] for row in pragma}
+        if "grau_label" not in column_names:
+            connection.execute(text("ALTER TABLE occurrence_records ADD COLUMN grau_label VARCHAR(128)"))

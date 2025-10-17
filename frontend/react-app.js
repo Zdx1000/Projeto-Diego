@@ -186,6 +186,16 @@
             return Boolean(className);
         });
     const VIEW_STORAGE_KEY = "projetoDiego.activeView";
+    const TABLE_DEFAULT_DATASET = "integration";
+    const TableViewComponent = (function () {
+        if (window.AppTableView && typeof window.AppTableView.Component === "function") {
+            return window.AppTableView.Component;
+        }
+        console.warn(
+            "Componente de tabela não encontrado. Garanta que 'table-view.js' seja carregado antes de 'react-app.js'."
+        );
+        return null;
+    })();
     const VIEW_CONFIG = {
         integration: {
             id: "integration",
@@ -204,6 +214,15 @@
             primaryActionLabel: "Salvar ocorrência",
             secondaryActionLabel: "Consultar histórico",
             note: "Revise com atenção antes de registrar a ocorrência"
+        },
+        table: {
+            id: "table",
+            label: "Tabela operacional",
+            title: "Tabela consolidada de integrações e ocorrências",
+            description: "Visualize o histórico paginado com até 10 registros por página",
+            primaryActionLabel: null,
+            secondaryActionLabel: null,
+            note: "Atualizações em tempo real após cada envio"
         },
         settings: {
             id: "settings",
@@ -1048,6 +1067,7 @@
                 occurrence: DEFAULT_OCCURRENCE_OPTIONS
             });
         });
+        const [tableDataset, setTableDataset] = React.useState(TABLE_DEFAULT_DATASET);
         const [integrationStatus, setIntegrationStatus] = React.useState(null);
         const [occurrenceStatus, setOccurrenceStatus] = React.useState(null);
         const [configStatus, setConfigStatus] = React.useState(null);
@@ -1156,8 +1176,16 @@
                 observacao: (occurrenceData.observacao || "").trim()
             };
 
+            const degreeOptions = parseDegreeOptions(occurrenceOptions.graus);
+            const selectedDegree = degreeOptions.find(function (option) {
+                return option.value === sanitized.grau;
+            });
+            const payload = Object.assign({}, sanitized, {
+                grau_label: selectedDegree ? selectedDegree.label : sanitized.grau
+            });
+
             console.group("Ocorrência registrada");
-            console.table(sanitized);
+            console.table(payload);
             console.groupEnd();
 
             setOccurrenceStatus({ type: "pending", message: "Salvando ocorrência no backend..." });
@@ -1168,7 +1196,7 @@
                     headers: {
                         "Content-Type": "application/json"
                     },
-                    body: JSON.stringify(sanitized)
+                    body: JSON.stringify(payload)
                 });
 
                 const responseBody = await response.json().catch(function () {
@@ -1463,14 +1491,32 @@
         );
 
         const handleNavigateToTable = function () {
-            console.info("A navegação para a tabela será implementada em uma etapa futura.");
+            setTableDataset("integration");
+            setActiveView("table");
         };
 
         const handleConsultHistory = function () {
-            console.info("A consulta ao histórico de ocorrências será implementada em uma etapa futura.");
+            setTableDataset("occurrence");
+            setActiveView("table");
         };
 
         const metadata = VIEW_CONFIG[activeView] || VIEW_CONFIG.integration;
+        const TableView = TableViewComponent;
+
+        const renderTableView = function () {
+            if (!TableView) {
+                return e(
+                    "div",
+                    { className: "table-view--unavailable" },
+                    "A visualização de tabela não está disponível no momento."
+                );
+            }
+
+            return e(TableView, {
+                dataset: tableDataset,
+                onDatasetChange: setTableDataset
+            });
+        };
 
         const renderIdentificationSection = function (state, changeHandler) {
             return e(
@@ -2224,9 +2270,19 @@
             );
         };
 
+        const containerClass = ["app-container", "app-container--" + activeView]
+            .filter(Boolean)
+            .join(" ");
+        const wrapperClass = [
+            "form-wrapper",
+            activeView === "table" ? "form-wrapper--table" : ""
+        ]
+            .filter(Boolean)
+            .join(" ");
+
         return e(
             "div",
-            { className: "app-container app-container--" + activeView },
+            { className: containerClass },
             e(
                 "header",
                 { className: "app-header" },
@@ -2235,12 +2291,14 @@
             ),
             e(
                 "main",
-                { className: "form-wrapper" },
+                { className: wrapperClass },
                 activeView === "integration"
                     ? renderIntegrationForm()
                     : activeView === "occurrence"
                     ? renderOccurrenceForm()
-                    : renderConfigurationForm()
+                    : activeView === "settings"
+                    ? renderConfigurationForm()
+                    : renderTableView()
             )
         );
     }
