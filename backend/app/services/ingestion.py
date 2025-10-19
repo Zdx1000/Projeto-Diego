@@ -122,6 +122,7 @@ def persist_occurrence(session: Session, payload: Dict[str, Any]) -> OccurrenceR
         cargo=_required_string(payload.get("cargo"), "cargo"),
         turno=_required_string(payload.get("turno"), "turno"),
         supervisor=_required_string(payload.get("supervisor"), "supervisor").upper(),
+        motivo=_safe_string(payload.get("motivo")),
         grau=_safe_int(payload.get("grau")),
         grau_label=_safe_string(payload.get("grau_label")),
         volumes=_safe_int(payload.get("volumes")),
@@ -146,6 +147,7 @@ def update_occurrence_record(
     record.cargo = _required_string(payload.get("cargo"), "cargo")
     record.turno = _required_string(payload.get("turno"), "turno")
     record.supervisor = _required_string(payload.get("supervisor"), "supervisor").upper()
+    record.motivo = _safe_string(payload.get("motivo"))
     record.grau = _safe_int(payload.get("grau"))
     record.grau_label = _safe_string(payload.get("grau_label"))
     record.volumes = _safe_int(payload.get("volumes"))

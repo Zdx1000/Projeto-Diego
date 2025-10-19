@@ -60,6 +60,58 @@
         return NUMBER_FORMATTER.format(numberValue);
     };
 
+    const parseFilenameFromDisposition = function (headerValue) {
+        if (!headerValue) {
+            return null;
+        }
+
+        const utf8Match = headerValue.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+        if (utf8Match && utf8Match[1]) {
+            try {
+                return decodeURIComponent(utf8Match[1]);
+            } catch (error) {
+                console.warn("Não foi possível decodificar o nome do arquivo do cabeçalho.", error);
+                return utf8Match[1];
+            }
+        }
+
+        const asciiMatch = headerValue.match(/filename\s*=\s*"?([^";]+)"?/i);
+        if (asciiMatch && asciiMatch[1]) {
+            return asciiMatch[1];
+        }
+
+        return null;
+    };
+
+    const sanitizeFilenameComponent = function (value) {
+        if (!value) {
+            return "";
+        }
+
+        const normalized = value.normalize ? value.normalize("NFD").replace(/[\u0300-\u036f]/g, "") : value;
+        const cleaned = normalized.replace(/[^a-zA-Z0-9_-]+/g, "-");
+        return cleaned.replace(/^-+|-+$/g, "").toLowerCase();
+    };
+
+    const buildExportFilename = function (label) {
+        const base = sanitizeFilenameComponent(label || "exportacao");
+        const safeBase = base || "exportacao";
+        const now = new Date();
+        const pad = function (value) {
+            return String(value).padStart(2, "0");
+        };
+        const timestamp =
+            now.getFullYear().toString() +
+            pad(now.getMonth() + 1) +
+            pad(now.getDate()) +
+            "_" +
+            pad(now.getHours()) +
+            pad(now.getMinutes()) +
+            pad(now.getSeconds());
+
+        return safeBase + "_" + timestamp + ".xlsx";
+    };
+
     const buildStatusClass = function (value) {
         if (!value) {
             return "status-pill status-pill--neutral";
@@ -398,6 +450,7 @@
             label: "Integrações",
             endpoint: "/api/integration/records",
             deleteEndpoint: "/api/integration/records",
+            exportEndpoint: "/api/integration/export",
             emptyMessage: "Nenhum registro de integração encontrado.",
             defaultSort: { field: "submitted_at", direction: "desc" },
             columns: [
@@ -470,6 +523,7 @@
             label: "Ocorrências",
             endpoint: "/api/occurrence/records",
             deleteEndpoint: "/api/occurrence/records",
+            exportEndpoint: "/api/occurrence/export",
             emptyMessage: "Nenhum registro de ocorrência encontrado.",
             defaultSort: { field: "created_at", direction: "desc" },
             columns: [
@@ -485,6 +539,13 @@
                 { key: "setor", label: "Setor", width: "150px", sortable: true },
                 { key: "cargo", label: "Cargo", width: "160px", className: "table-cell--truncate", sortable: true },
                 { key: "turno", label: "Turno", width: "120px", sortable: true },
+                {
+                    key: "motivo",
+                    label: "Motivo",
+                    width: "180px",
+                    sortable: true,
+                    className: "table-cell--truncate"
+                },
                 {
                     key: "grau_label",
                     label: "Grau",
@@ -611,6 +672,7 @@
         const [refreshToken, setRefreshToken] = React.useState(0);
         const [actionState, setActionState] = React.useState({ type: null, busyKey: null });
         const [actionFeedback, setActionFeedback] = React.useState(null);
+        const [exporting, setExporting] = React.useState(false);
 
         React.useEffect(
             function () {
@@ -618,6 +680,7 @@
                 setSortDescriptor(null);
                 setSearchTerm("");
                 setDebouncedSearch("");
+                setExporting(false);
             },
             [dataset]
         );
@@ -954,6 +1017,83 @@
             }
         };
 
+        const handleExport = React.useCallback(
+            async function () {
+                if (!definition.exportEndpoint) {
+                    setActionFeedback({
+                        type: "error",
+                        message: "Exportação não disponível para este conjunto de dados."
+                    });
+                    return;
+                }
+
+                if (exporting) {
+                    return;
+                }
+
+                const appliedSort = sortDescriptor || definition.defaultSort || null;
+                const params = new URLSearchParams();
+                if (appliedSort && appliedSort.field) {
+                    params.set("sort_by", appliedSort.field);
+                    params.set("sort_order", appliedSort.direction === "asc" ? "asc" : "desc");
+                }
+                if (debouncedSearch) {
+                    params.set("search", debouncedSearch);
+                }
+
+                const endpoint = definition.exportEndpoint.replace(/\/$/, "");
+                const url = params.toString() ? endpoint + "?" + params.toString() : endpoint;
+
+                setExporting(true);
+
+                try {
+                    const response = await fetch(url, { method: "GET" });
+                    if (!response.ok) {
+                        const errorPayload = await response.json().catch(function () {
+                            return null;
+                        });
+                        const message = errorPayload && errorPayload.error
+                            ? errorPayload.error
+                            : "Não foi possível gerar o arquivo de exportação.";
+                        throw new Error(message);
+                    }
+
+                    const blob = await response.blob();
+                    if (!blob || blob.size === 0) {
+                        throw new Error("O arquivo de exportação retornou vazio.");
+                    }
+
+                    const disposition = response.headers.get("Content-Disposition");
+                    const headerFilename = parseFilenameFromDisposition(disposition);
+                    const fallbackFilename = buildExportFilename(datasetLabel);
+                    const filename = headerFilename || fallbackFilename;
+
+                    const objectUrl = window.URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = objectUrl;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(objectUrl);
+
+                    setActionFeedback({
+                        type: "success",
+                        message: "Exportação concluída. Arquivo " + filename + " gerado"
+                    });
+                } catch (error) {
+                    console.error(error);
+                    const message = error instanceof Error && error.message
+                        ? error.message
+                        : "Falha inesperada ao exportar os dados.";
+                    setActionFeedback({ type: "error", message: message });
+                } finally {
+                    setExporting(false);
+                }
+            },
+            [definition, sortDescriptor, debouncedSearch, datasetLabel, exporting]
+        );
+
         const rangeStart = state.totalItems ? (state.page - 1) * state.pageSize + 1 : 0;
         const rangeEnd = state.totalItems ? Math.min(state.page * state.pageSize, state.totalItems) : 0;
         const appliedSort = sortDescriptor || definition.defaultSort || null;
@@ -1016,6 +1156,25 @@
                 e(
                     "div",
                     { className: "table-toolbar__right" },
+                    e(
+                        "button",
+                        {
+                            type: "button",
+                            className:
+                                "table-export-button" +
+                                (exporting ? " table-export-button--loading" : ""),
+                            onClick: handleExport,
+                            disabled: loading || exporting,
+                            title: "Exportar registros para Excel",
+                            "aria-busy": exporting ? "true" : undefined
+                        },
+                        e("i", { className: "fi-rr-download", "aria-hidden": "true" }),
+                        e(
+                            "span",
+                            { className: "table-export-button__label" },
+                            exporting ? "Gerando arquivo..." : "Exportar para Excel"
+                        )
+                    ),
                     e(
                         "div",
                         { className: "table-metrics" + (isFiltering ? " table-metrics--filtered" : "") },

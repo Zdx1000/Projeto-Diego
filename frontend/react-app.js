@@ -29,6 +29,14 @@
             "8 - Muito alto",
             "9 - Crítico",
             "10 - Muito grave"
+        ],
+        motivos: [
+            "Avaria",
+            "Erro de movimentação",
+            "Conferência irregular",
+            "Chegou atrasado",
+            "Jornada incompleta",
+            "Discussão"
         ]
     };
 
@@ -166,7 +174,8 @@
         const source = options || {};
         return {
             turnos: sanitizeList(source.turnos, DEFAULT_OCCURRENCE_OPTIONS.turnos),
-            graus: sanitizeList(source.graus, DEFAULT_OCCURRENCE_OPTIONS.graus)
+            graus: sanitizeList(source.graus, DEFAULT_OCCURRENCE_OPTIONS.graus),
+            motivos: sanitizeList(source.motivos, DEFAULT_OCCURRENCE_OPTIONS.motivos)
         };
     };
 
@@ -175,6 +184,33 @@
             return "";
         }
         return list.indexOf(value) !== -1 ? value : list[0];
+    };
+
+    const formatDateTime = function (value) {
+        if (!value) {
+            return "—";
+        }
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return String(value);
+        }
+
+        const pad = function (input) {
+            return String(input).padStart(2, "0");
+        };
+
+        return (
+            pad(date.getDate()) +
+            "/" +
+            pad(date.getMonth() + 1) +
+            "/" +
+            date.getFullYear() +
+            " " +
+            pad(date.getHours()) +
+            ":" +
+            pad(date.getMinutes())
+        );
     };
 
     const THEME_STORAGE_KEY = "projetoDiego.theme";
@@ -214,6 +250,16 @@
             primaryActionLabel: "Salvar ocorrência",
             secondaryActionLabel: "Consultar histórico",
             note: "Revise com atenção antes de registrar a ocorrência"
+        },
+        occurrenceSearch: {
+            id: "occurrenceSearch",
+            label: "Consulta de ocorrências",
+            title: "Consulta de ocorrências por colaborador",
+            description:
+                "Pesquise o histórico de registros utilizando matrícula ou nome do colaborador",
+            primaryActionLabel: null,
+            secondaryActionLabel: null,
+            note: "Informe pelo menos um dos campos para iniciar a busca"
         },
         table: {
             id: "table",
@@ -464,6 +510,34 @@
                 })
             ];
         },
+        motivo: function () {
+            return [
+                e("circle", {
+                    key: "outer",
+                    cx: 12,
+                    cy: 12,
+                    r: 5.5,
+                    fill: "none",
+                    stroke: "currentColor",
+                    strokeWidth: 1.6
+                }),
+                e("path", {
+                    key: "exclamation",
+                    d: "M12 8.4v4.4",
+                    fill: "none",
+                    stroke: "currentColor",
+                    strokeWidth: 1.7,
+                    strokeLinecap: "round"
+                }),
+                e("circle", {
+                    key: "dot",
+                    cx: 12,
+                    cy: 15.4,
+                    r: 0.9,
+                    fill: "currentColor"
+                })
+            ];
+        },
         data: function () {
             return [
                 e("rect", {
@@ -698,6 +772,7 @@
         const cargos = Array.isArray(integrationOptions.cargos) ? integrationOptions.cargos : [];
         const turnos = Array.isArray(occurrenceOptions.turnos) ? occurrenceOptions.turnos : [];
         const grauOptions = parseDegreeOptions(occurrenceOptions.graus);
+        const motivos = Array.isArray(occurrenceOptions.motivos) ? occurrenceOptions.motivos : [];
 
         return {
             matricula: "",
@@ -707,6 +782,7 @@
             turno: turnos[0] || "",
             supervisor: "",
             grau: grauOptions[0] ? grauOptions[0].value : "",
+            motivo: motivos[0] || "",
             volumes: "",
             observacao: ""
         };
@@ -725,7 +801,8 @@
             },
             occurrence: {
                 turnos: (occurrence.turnos || []).join("\n"),
-                graus: (occurrence.graus || []).join("\n")
+                graus: (occurrence.graus || []).join("\n"),
+                motivos: (occurrence.motivos || []).join("\n")
             }
         };
     };
@@ -811,6 +888,7 @@
         const cargos = Array.isArray(integrationOptions.cargos) ? integrationOptions.cargos : [];
         const turnos = Array.isArray(occurrenceOptions.turnos) ? occurrenceOptions.turnos : [];
         const degreeOptions = parseDegreeOptions(occurrenceOptions.graus);
+        const motivos = Array.isArray(occurrenceOptions.motivos) ? occurrenceOptions.motivos : [];
 
         return {
             matricula: String(record.matricula || ""),
@@ -820,6 +898,7 @@
             turno: ensureFromList(record.turno, turnos),
             supervisor: String(record.supervisor || ""),
             grau: deriveDegreeValueFromRecord(record, degreeOptions),
+            motivo: ensureFromList(record.motivo, motivos),
             volumes: record.volumes !== undefined && record.volumes !== null ? String(record.volumes) : "",
             observacao: String(record.observacao || "")
         };
@@ -1166,7 +1245,17 @@
         const [integrationStatus, setIntegrationStatus] = React.useState(null);
         const [occurrenceStatus, setOccurrenceStatus] = React.useState(null);
         const [configStatus, setConfigStatus] = React.useState(null);
-    const [editingContext, setEditingContext] = React.useState(null);
+        const [editingContext, setEditingContext] = React.useState(null);
+        const [occurrenceSearchFilters, setOccurrenceSearchFilters] = React.useState({
+            matricula: "",
+            nome: ""
+        });
+        const [occurrenceSearchState, setOccurrenceSearchState] = React.useState({
+            loading: false,
+            error: null,
+            items: [],
+            hasSearched: false
+        });
 
         const handleIntegrationChange = createChangeHandler(setFormData);
         const handleOccurrenceChange = createChangeHandler(setOccurrenceData);
@@ -1182,6 +1271,26 @@
                     return Object.assign({}, previous, {
                         [category]: nextCategory
                     });
+                });
+            };
+        };
+
+        const handleOccurrenceSearchChange = function (field) {
+            return function (event) {
+                const value = event.target.value;
+
+                setOccurrenceSearchFilters(function (previous) {
+                    return Object.assign({}, previous, {
+                        [field]: value
+                    });
+                });
+
+                setOccurrenceSearchState(function (previous) {
+                    if (!previous.error) {
+                        return previous;
+                    }
+
+                    return Object.assign({}, previous, { error: null });
                 });
             };
         };
@@ -1298,6 +1407,7 @@
                 setor: occurrenceData.setor,
                 cargo: occurrenceData.cargo,
                 turno: occurrenceData.turno,
+                motivo: (occurrenceData.motivo || "").trim(),
                 supervisor: (occurrenceData.supervisor || "").trim(),
                 grau: occurrenceData.grau,
                 volumes: occurrenceData.volumes,
@@ -1416,7 +1526,8 @@
                 },
                 occurrence: {
                     turnos: parseList(configData.occurrence.turnos),
-                    graus: parseList(configData.occurrence.graus)
+                    graus: parseList(configData.occurrence.graus),
+                    motivos: parseList(configData.occurrence.motivos)
                 }
             };
 
@@ -1629,20 +1740,25 @@
                 const degreeValues = degreeOptions.map(function (option) {
                     return option.value;
                 });
+                const motivos = Array.isArray(occurrenceOptions.motivos)
+                    ? occurrenceOptions.motivos
+                    : [];
 
                 setOccurrenceData(function (previous) {
                     const next = Object.assign({}, previous, {
                         setor: ensureFromList(previous.setor, integrationOptions.setores),
                         cargo: ensureFromList(previous.cargo, integrationOptions.cargos),
                         turno: ensureFromList(previous.turno, occurrenceOptions.turnos),
-                        grau: ensureFromList(previous.grau, degreeValues)
+                        grau: ensureFromList(previous.grau, degreeValues),
+                        motivo: ensureFromList(previous.motivo, motivos)
                     });
 
                     if (
                         next.setor === previous.setor &&
                         next.cargo === previous.cargo &&
                         next.turno === previous.turno &&
-                        next.grau === previous.grau
+                        next.grau === previous.grau &&
+                        next.motivo === previous.motivo
                     ) {
                         return previous;
                     }
@@ -1715,6 +1831,107 @@
         const handleConsultHistory = function () {
             setTableDataset("occurrence");
             setActiveView("table");
+        };
+
+        const handleOccurrenceSearchReset = function () {
+            setOccurrenceSearchFilters({ matricula: "", nome: "" });
+            setOccurrenceSearchState({
+                loading: false,
+                error: null,
+                items: [],
+                hasSearched: false
+            });
+        };
+
+        const handleOccurrenceSearchSubmit = async function (event) {
+            event.preventDefault();
+
+            const matriculaQuery = (occurrenceSearchFilters.matricula || "").trim();
+            const nomeQuery = (occurrenceSearchFilters.nome || "").trim();
+
+            if (!matriculaQuery && !nomeQuery) {
+                setOccurrenceSearchState(function (previous) {
+                    return Object.assign({}, previous, {
+                        loading: false,
+                        error: "Informe a matrícula ou o nome do colaborador.",
+                        hasSearched: false
+                    });
+                });
+                return;
+            }
+
+            setOccurrenceSearchState(function (previous) {
+                return Object.assign({}, previous, {
+                    loading: true,
+                    error: null
+                });
+            });
+
+            const params = new URLSearchParams({
+                page: "1",
+                page_size: "200",
+                sort_by: "created_at",
+                sort_order: "desc"
+            });
+
+            const searchTerm = matriculaQuery || nomeQuery;
+            if (searchTerm) {
+                params.append("search", searchTerm);
+            }
+
+            try {
+                const response = await fetch("/api/occurrence/records?" + params.toString());
+                const payload = await response.json().catch(function () {
+                    return null;
+                });
+
+                if (!response.ok) {
+                    const message = payload && payload.error
+                        ? payload.error
+                        : "Não foi possível recuperar as ocorrências.";
+                    throw new Error(message);
+                }
+
+                const items = payload && Array.isArray(payload.items) ? payload.items : [];
+                const normalizedMatricula = matriculaQuery.toLowerCase();
+                const normalizedNome = nomeQuery.toLowerCase();
+
+                const filteredItems = items.filter(function (item) {
+                    const recordMatricula = String(item.matricula || "").toLowerCase();
+                    const recordNome = String(item.nome || "").toLowerCase();
+
+                    const matchesMatricula = matriculaQuery
+                        ? recordMatricula.indexOf(normalizedMatricula) !== -1
+                        : true;
+                    const matchesNome = nomeQuery ? recordNome.indexOf(normalizedNome) !== -1 : true;
+
+                    return matchesMatricula && matchesNome;
+                });
+
+                filteredItems.sort(function (a, b) {
+                    const timeA = new Date(a.created_at || 0).getTime();
+                    const timeB = new Date(b.created_at || 0).getTime();
+                    return timeB - timeA;
+                });
+
+                setOccurrenceSearchState({
+                    loading: false,
+                    error: null,
+                    items: filteredItems,
+                    hasSearched: true
+                });
+            } catch (error) {
+                const message = error && error.message
+                    ? error.message
+                    : "Erro inesperado ao consultar ocorrências.";
+
+                setOccurrenceSearchState({
+                    loading: false,
+                    error: message,
+                    items: [],
+                    hasSearched: true
+                });
+            }
         };
 
         const isEditingIntegration = editingContext && editingContext.dataset === "integration";
@@ -2152,6 +2369,26 @@
                     ),
                     e(
                         "label",
+                        { className: "form-field", htmlFor: "motivoOcorrencia" },
+                        renderFieldLabel("Motivo", "motivo"),
+                        e(
+                            "select",
+                            {
+                                id: "motivoOcorrencia",
+                                value: occurrenceData.motivo,
+                                onChange: handleOccurrenceChange("motivo"),
+                                required: true
+                            },
+                            (occurrenceOptions.motivos || []).map(buildOption)
+                        ),
+                        e(
+                            "span",
+                            { className: "form-field-description" },
+                            "Classifique a causa principal registrada para o evento"
+                        )
+                    ),
+                    e(
+                        "label",
                         { className: "form-field", htmlFor: "grauOcorrencia" },
                         renderFieldLabel("Grau de ocorrência", "gravidade"),
                         e(
@@ -2453,6 +2690,23 @@
                                 { className: "form-field-description" },
                                 "Ex.: 0 - Muito baixo"
                             )
+                        ),
+                        e(
+                            "label",
+                            { className: "form-field", htmlFor: "config-motivos-ocorrencia" },
+                            renderFieldLabel("Motivos da ocorrência", "motivo"),
+                            e("textarea", {
+                                id: "config-motivos-ocorrencia",
+                                rows: 6,
+                                value: configData.occurrence.motivos,
+                                onChange: handleConfigChange("occurrence", "motivos"),
+                                placeholder: "Um item por linha"
+                            }),
+                            e(
+                                "span",
+                                { className: "form-field-description" },
+                                "Liste as causas que podem ser selecionadas no formulário."
+                            )
                         )
                     )
                 ),
@@ -2580,12 +2834,222 @@
             );
         };
 
+        const renderOccurrenceSearchView = function () {
+            const hasResults = occurrenceSearchState.items.length > 0;
+            const showEmptyState =
+                occurrenceSearchState.hasSearched &&
+                !occurrenceSearchState.loading &&
+                !occurrenceSearchState.error &&
+                !hasResults;
+            const showHint =
+                !occurrenceSearchState.hasSearched &&
+                !occurrenceSearchState.loading &&
+                !occurrenceSearchState.error;
+
+            return e(
+                "section",
+                { className: "occurrence-search" },
+                e(
+                    "form",
+                    { className: "occurrence-search__form", onSubmit: handleOccurrenceSearchSubmit },
+                    e(
+                        "div",
+                        { className: "occurrence-search__fields" },
+                        e(
+                            "label",
+                            { className: "form-field", htmlFor: "occurrence-search-matricula" },
+                            renderFieldLabel("Matrícula", "matricula"),
+                            e("input", {
+                                id: "occurrence-search-matricula",
+                                type: "text",
+                                inputMode: "numeric",
+                                placeholder: "Informe a matrícula",
+                                value: occurrenceSearchFilters.matricula,
+                                onChange: handleOccurrenceSearchChange("matricula")
+                            })
+                        ),
+                        e(
+                            "label",
+                            { className: "form-field", htmlFor: "occurrence-search-nome" },
+                            renderFieldLabel("Nome do colaborador", "nome"),
+                            e("input", {
+                                id: "occurrence-search-nome",
+                                type: "text",
+                                placeholder: "Nome ou parte do nome",
+                                value: occurrenceSearchFilters.nome,
+                                onChange: handleOccurrenceSearchChange("nome")
+                            })
+                        )
+                    ),
+                    e(
+                        "div",
+                        { className: "occurrence-search__actions" },
+                        e(
+                            "button",
+                            {
+                                type: "submit",
+                                className: "primary-button",
+                                disabled: occurrenceSearchState.loading
+                            },
+                            occurrenceSearchState.loading ? "Pesquisando..." : "Pesquisar"
+                        ),
+                        e(
+                            "button",
+                            {
+                                type: "button",
+                                className: "ghost-button",
+                                onClick: handleOccurrenceSearchReset,
+                                disabled:
+                                    occurrenceSearchState.loading ||
+                                    (!occurrenceSearchFilters.matricula &&
+                                        !occurrenceSearchFilters.nome &&
+                                        !occurrenceSearchState.hasSearched)
+                            },
+                            "Limpar filtros"
+                        )
+                    ),
+                    occurrenceSearchState.error
+                        ? e(
+                              "div",
+                              {
+                                  className: "occurrence-search__status occurrence-search__status--error",
+                                  role: "alert"
+                              },
+                              occurrenceSearchState.error
+                          )
+                        : null
+                ),
+                e(
+                    "div",
+                    { className: "occurrence-search__results" },
+                    occurrenceSearchState.loading
+                        ? e(
+                              "div",
+                              {
+                                  className: "occurrence-search__status occurrence-search__status--loading",
+                                  role: "status"
+                              },
+                              "Buscando ocorrências..."
+                          )
+                        : hasResults
+                        ? e(
+                              React.Fragment,
+                              null,
+                              e(
+                                  "p",
+                                  { className: "occurrence-search__summary" },
+                                  occurrenceSearchState.items.length,
+                                  occurrenceSearchState.items.length === 1
+                                      ? " ocorrência encontrada"
+                                      : " ocorrências encontradas"
+                              ),
+                              e(
+                                  "div",
+                                  { className: "occurrence-search__table-wrapper" },
+                                  e(
+                                      "table",
+                                      { className: "occurrence-search__table" },
+                                      e(
+                                          "thead",
+                                          null,
+                                          e(
+                                              "tr",
+                                              null,
+                                              [
+                                                  "ID",
+                                                  "Matrícula",
+                                                  "Colaborador",
+                                                  "Setor",
+                                                  "Turno",
+                                                  "Supervisor",
+                                                  "Motivo",
+                                                  "Grau",
+                                                  "Volumes",
+                                                  "Observação",
+                                                  "Registrado em"
+                                              ].map(function (header) {
+                                                  return e("th", { key: header }, header);
+                                              })
+                                          )
+                                      ),
+                                      e(
+                                          "tbody",
+                                          null,
+                                          occurrenceSearchState.items.map(function (record, index) {
+                                              const rowKey =
+                                                  record && record.id !== undefined && record.id !== null
+                                                      ? "occurrence-" + record.id
+                                                      : "occurrence-" + index;
+
+                                              return e(
+                                                  "tr",
+                                                  { key: rowKey },
+                                                  e("td", null, record && record.id !== undefined ? record.id : "—"),
+                                                  e("td", null, record && record.matricula ? record.matricula : "—"),
+                                                  e("td", null, record && record.nome ? record.nome : "—"),
+                                                  e("td", null, record && record.setor ? record.setor : "—"),
+                                                  e("td", null, record && record.turno ? record.turno : "—"),
+                                                  e("td", null, record && record.supervisor ? record.supervisor : "—"),
+                                                  e("td", null, record && record.motivo ? record.motivo : "—"),
+                                                  e(
+                                                      "td",
+                                                      null,
+                                                      record && record.grau_label
+                                                          ? record.grau_label
+                                                          : record && record.grau !== undefined && record.grau !== null
+                                                          ? record.grau
+                                                          : "—"
+                                                  ),
+                                                  e(
+                                                      "td",
+                                                      null,
+                                                      record && record.volumes !== undefined && record.volumes !== null
+                                                          ? record.volumes
+                                                          : "—"
+                                                  ),
+                                                  e(
+                                                      "td",
+                                                      { className: "occurrence-search__observation" },
+                                                      record && record.observacao ? record.observacao : "—"
+                                                  ),
+                                                  e(
+                                                      "td",
+                                                      null,
+                                                      formatDateTime(record ? record.created_at : null)
+                                                  )
+                                              );
+                                          })
+                                      )
+                                  )
+                              )
+                          )
+                        : showEmptyState
+                        ? e(
+                              "div",
+                              {
+                                  className: "occurrence-search__status occurrence-search__status--empty",
+                                  role: "status"
+                              },
+                              "Nenhuma ocorrência encontrada para os filtros informados."
+                          )
+                        : showHint
+                        ? e(
+                              "div",
+                              { className: "occurrence-search__status occurrence-search__status--hint" },
+                              "Informe a matrícula ou o nome do colaborador para consultar o histórico de ocorrências."
+                          )
+                        : null
+                )
+            );
+        };
+
         const containerClass = ["app-container", "app-container--" + activeView]
             .filter(Boolean)
             .join(" ");
         const wrapperClass = [
             "form-wrapper",
-            activeView === "table" ? "form-wrapper--table" : ""
+            activeView === "table" ? "form-wrapper--table" : "",
+            activeView === "occurrenceSearch" ? "form-wrapper--occurrenceSearch" : ""
         ]
             .filter(Boolean)
             .join(" ");
@@ -2606,6 +3070,8 @@
                     ? renderIntegrationForm()
                     : activeView === "occurrence"
                     ? renderOccurrenceForm()
+                    : activeView === "occurrenceSearch"
+                    ? renderOccurrenceSearchView()
                     : activeView === "settings"
                     ? renderConfigurationForm()
                     : renderTableView()

@@ -38,6 +38,14 @@ DEFAULT_CONFIGURATION: Dict[str, Dict[str, List[str]]] = {
             "9 - Crítico",
             "10 - Muito grave",
         ],
+        "motivos": [
+            "Avaria",
+            "Erro de movimentação",
+            "Conferência irregular",
+            "Chegou atrasado",
+            "Jornada incompleta",
+            "Discussão",
+        ],
     },
 }
 

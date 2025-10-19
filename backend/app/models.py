@@ -36,6 +36,7 @@ class OccurrenceRecord(Base):
     cargo: Mapped[str] = mapped_column(String(64), nullable=False)
     turno: Mapped[str] = mapped_column(String(32), nullable=False)
     supervisor: Mapped[str] = mapped_column(String(128), nullable=False)
+    motivo: Mapped[str | None] = mapped_column(String(64), nullable=True)
     grau: Mapped[int | None] = mapped_column(Integer, nullable=True)
     grau_label: Mapped[str | None] = mapped_column(String(128), nullable=True)
     volumes: Mapped[int | None] = mapped_column(Integer, nullable=True)

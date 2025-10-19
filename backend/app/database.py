@@ -89,3 +89,5 @@ def _run_schema_upgrades(engine) -> None:
         column_names = {row[1] for row in pragma}
         if "grau_label" not in column_names:
             connection.execute(text("ALTER TABLE occurrence_records ADD COLUMN grau_label VARCHAR(128)"))
+        if "motivo" not in column_names:
+            connection.execute(text("ALTER TABLE occurrence_records ADD COLUMN motivo VARCHAR(64)"))
