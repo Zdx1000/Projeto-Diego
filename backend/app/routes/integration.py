@@ -12,7 +12,12 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from ..database import session_scope
 from ..services.configuration import get_snapshot
-from ..services.ingestion import build_envelope, log_envelope, persist_integration
+from ..services.ingestion import (
+    build_envelope,
+    log_envelope,
+    persist_integration,
+    update_integration_record,
+)
 from ..models import IntegrationRecord
 
 integration_bp = Blueprint("integration", __name__, url_prefix="/api/integration")
@@ -84,6 +89,54 @@ def accept_submission() -> Any:
         return jsonify({"error": str(error)}), HTTPStatus.BAD_REQUEST
     except SQLAlchemyError:
         return jsonify({"error": "Erro ao salvar a integração."}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+@integration_bp.put("/records/<int:record_id>")
+def update_record(record_id: int) -> Any:
+    payload = _extract_payload()
+    if payload is None:
+        return jsonify({"error": "Não foi possível interpretar os dados enviados."}), HTTPStatus.BAD_REQUEST
+
+    try:
+        with session_scope() as session:
+            record = session.get(IntegrationRecord, record_id)
+            if record is None:
+                return jsonify({"error": "Registro de integração não encontrado."}), HTTPStatus.NOT_FOUND
+
+            updated_record = update_integration_record(session, record, payload)
+            options = get_snapshot(session).get("integration", {})
+            envelope = build_envelope(_record_payload(updated_record), origin="frontend")
+            log_envelope(envelope, record_id=updated_record.id)
+
+        return (
+            jsonify(
+                {
+                    "status": "updated",
+                    "record_id": record_id,
+                    "options": options,
+                }
+            ),
+            HTTPStatus.OK,
+        )
+    except ValueError as error:
+        return jsonify({"error": str(error)}), HTTPStatus.BAD_REQUEST
+    except SQLAlchemyError:
+        return jsonify({"error": "Erro ao atualizar a integração."}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+@integration_bp.delete("/records/<int:record_id>")
+def delete_record(record_id: int) -> Any:
+    try:
+        with session_scope() as session:
+            record = session.get(IntegrationRecord, record_id)
+            if record is None:
+                return jsonify({"error": "Registro de integração não encontrado."}), HTTPStatus.NOT_FOUND
+
+            session.delete(record)
+
+        return jsonify({"status": "deleted", "record_id": record_id}), HTTPStatus.OK
+    except SQLAlchemyError:
+        return jsonify({"error": "Erro ao remover a integração."}), HTTPStatus.INTERNAL_SERVER_ERROR
 
 
 @integration_bp.get("/records")

@@ -13,7 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from ..database import session_scope
 from ..models import OccurrenceRecord
 from ..services.configuration import get_snapshot
-from ..services.ingestion import persist_occurrence
+from ..services.ingestion import persist_occurrence, update_occurrence_record
 
 occurrence_bp = Blueprint("occurrence", __name__, url_prefix="/api/occurrence")
 
@@ -60,6 +60,53 @@ def register_occurrence() -> Any:
         return jsonify({"error": str(error)}), HTTPStatus.BAD_REQUEST
     except SQLAlchemyError:
         return jsonify({"error": "Erro ao salvar a ocorrência."}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+@occurrence_bp.put("/records/<int:record_id>")
+def update_occurrence(record_id: int) -> Any:
+    payload = _extract_payload()
+    if payload is None:
+        return jsonify({"error": "Não foi possível interpretar os dados enviados."}), HTTPStatus.BAD_REQUEST
+
+    try:
+        with session_scope() as session:
+            record = session.get(OccurrenceRecord, record_id)
+            if record is None:
+                return jsonify({"error": "Registro de ocorrência não encontrado."}), HTTPStatus.NOT_FOUND
+
+            updated_record = update_occurrence_record(session, record, payload)
+            options = get_snapshot(session).get("occurrence", {})
+
+        return (
+            jsonify(
+                {
+                    "status": "updated",
+                    "record_id": record_id,
+                    "options": options,
+                    "grau_label": updated_record.grau_label,
+                }
+            ),
+            HTTPStatus.OK,
+        )
+    except ValueError as error:
+        return jsonify({"error": str(error)}), HTTPStatus.BAD_REQUEST
+    except SQLAlchemyError:
+        return jsonify({"error": "Erro ao atualizar a ocorrência."}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+@occurrence_bp.delete("/records/<int:record_id>")
+def delete_occurrence(record_id: int) -> Any:
+    try:
+        with session_scope() as session:
+            record = session.get(OccurrenceRecord, record_id)
+            if record is None:
+                return jsonify({"error": "Registro de ocorrência não encontrado."}), HTTPStatus.NOT_FOUND
+
+            session.delete(record)
+
+        return jsonify({"status": "deleted", "record_id": record_id}), HTTPStatus.OK
+    except SQLAlchemyError:
+        return jsonify({"error": "Erro ao remover a ocorrência."}), HTTPStatus.INTERNAL_SERVER_ERROR
 
 
 @occurrence_bp.get("/records")

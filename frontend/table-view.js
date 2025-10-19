@@ -92,11 +92,312 @@
         return "severity-chip severity-chip--neutral";
     };
 
+    const ObservationIcon = function (props) {
+        const variant = props && props.variant === "outline" ? "outline" : "filled";
+        return e(
+            "svg",
+            {
+                className: "observation-icon observation-icon--" + variant,
+                viewBox: "0 0 24 24",
+                width: 20,
+                height: 20,
+                role: "presentation",
+                focusable: "false"
+            },
+            variant === "outline"
+                ? e("path", {
+                      d: "M5 6.8c0-1.04.84-1.88 1.88-1.88h10.24A1.88 1.88 0 0119 6.8v6.06a1.88 1.88 0 01-1.88 1.88h-3.4l-2.62 2.6a.62.62 0 01-1.06-.44v-2.16H6.88A1.88 1.88 0 015 12.86V6.8z",
+                      fill: "none",
+                      stroke: "currentColor",
+                      strokeWidth: 1.6,
+                      strokeLinecap: "round",
+                      strokeLinejoin: "round"
+                  })
+                : e("path", {
+                      d: "M6.8 5h10.4A1.8 1.8 0 0119 6.8v6.1a1.8 1.8 0 01-1.8 1.8h-3.5l-3.1 3.1a.7.7 0 01-1.2-.5v-2.6H6.8A1.8 1.8 0 015 12.9V6.8A1.8 1.8 0 016.8 5z",
+                      fill: "currentColor"
+                  })
+        );
+    };
+
+    const ObservationPopover = function (props) {
+        const noteText = typeof props.text === "string" ? props.text : props.text !== null && props.text !== undefined ? String(props.text) : "";
+        const normalizedNote = noteText.trim();
+        const hasContent = normalizedNote.length > 0;
+        const [isOpen, setIsOpen] = React.useState(false);
+        const [popoverStyle, setPopoverStyle] = React.useState(null);
+        const containerRef = React.useRef(null);
+        const triggerRef = React.useRef(null);
+        const popoverRef = React.useRef(null);
+        const popoverId = React.useMemo(function () {
+            return "observation-popover-" + Math.random().toString(16).slice(2);
+        }, []);
+
+        const closePopover = React.useCallback(function (shouldFocus) {
+            setIsOpen(false);
+            setPopoverStyle(null);
+            if (shouldFocus && triggerRef.current) {
+                window.requestAnimationFrame(function () {
+                    if (triggerRef.current) {
+                        triggerRef.current.focus();
+                    }
+                });
+            }
+        }, []);
+
+        const updatePosition = React.useCallback(function () {
+            if (!triggerRef.current || !popoverRef.current) {
+                return;
+            }
+
+            const triggerRect = triggerRef.current.getBoundingClientRect();
+            const popoverRect = popoverRef.current.getBoundingClientRect();
+            const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+            const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+            const margin = 16;
+
+            const minLeft = margin;
+            const maxLeft = viewportWidth - margin - popoverRect.width;
+            let left = triggerRect.left + triggerRect.width - popoverRect.width;
+            left = Math.max(minLeft, Math.min(left, maxLeft));
+
+            const defaultTop = triggerRect.bottom + 12;
+            const maxTop = viewportHeight - margin - popoverRect.height;
+            let top = Math.max(margin, Math.min(defaultTop, maxTop));
+
+            const triggerCenter = triggerRect.left + triggerRect.width / 2;
+            let arrowLeft = triggerCenter - left - 9;
+            const arrowMin = 18;
+            const arrowMax = Math.max(arrowMin, popoverRect.width - 18);
+            arrowLeft = Math.min(Math.max(arrowLeft, arrowMin), arrowMax);
+
+            setPopoverStyle({ top: top, left: left, arrowLeft: arrowLeft });
+        }, []);
+
+        React.useEffect(
+            function () {
+                if (!isOpen) {
+                    return undefined;
+                }
+
+                const handlePointerDown = function (event) {
+                    const containerElement = containerRef.current;
+                    const popoverElement = popoverRef.current;
+                    if (
+                        (containerElement && containerElement.contains(event.target)) ||
+                        (popoverElement && popoverElement.contains(event.target))
+                    ) {
+                        return;
+                    }
+                    closePopover(false);
+                };
+
+                const handleKeyDown = function (event) {
+                    if (event.key === "Escape") {
+                        event.preventDefault();
+                        closePopover(true);
+                    }
+                };
+
+                document.addEventListener("mousedown", handlePointerDown);
+                document.addEventListener("touchstart", handlePointerDown);
+                document.addEventListener("keydown", handleKeyDown);
+
+                return function () {
+                    document.removeEventListener("mousedown", handlePointerDown);
+                    document.removeEventListener("touchstart", handlePointerDown);
+                    document.removeEventListener("keydown", handleKeyDown);
+                };
+            },
+            [isOpen, closePopover]
+        );
+
+        React.useEffect(
+            function () {
+                if (!hasContent && isOpen) {
+                    setIsOpen(false);
+                    setPopoverStyle(null);
+                }
+            },
+            [hasContent, isOpen]
+        );
+
+        React.useLayoutEffect(
+            function () {
+                if (!isOpen || !hasContent) {
+                    return undefined;
+                }
+
+                updatePosition();
+
+                const handleReposition = function () {
+                    updatePosition();
+                };
+
+                window.addEventListener("resize", handleReposition);
+                window.addEventListener("scroll", handleReposition, true);
+
+                return function () {
+                    window.removeEventListener("resize", handleReposition);
+                    window.removeEventListener("scroll", handleReposition, true);
+                };
+            },
+            [isOpen, hasContent, updatePosition, normalizedNote]
+        );
+
+        const formattedTimestamp = React.useMemo(
+            function () {
+                if (!props.timestamp) {
+                    return null;
+                }
+                return formatDateTime(props.timestamp);
+            },
+            [props.timestamp]
+        );
+
+        const handleToggle = function () {
+            if (!hasContent) {
+                return;
+            }
+            setIsOpen(function (previous) {
+                const nextValue = !previous;
+                if (!nextValue) {
+                    setPopoverStyle(null);
+                }
+                return nextValue;
+            });
+        };
+
+        const popoverNode = isOpen && hasContent
+            ? ReactDOM.createPortal(
+                  e(
+                      "div",
+                      {
+                          className: "observation-popover",
+                          role: "dialog",
+                          id: popoverId,
+                          "aria-modal": "false",
+                          ref: popoverRef,
+                          style: popoverStyle
+                              ? {
+                                    top: popoverStyle.top + "px",
+                                    left: popoverStyle.left + "px",
+                                    "--observation-arrow-left": popoverStyle.arrowLeft + "px"
+                                }
+                              : {
+                                    top: "-9999px",
+                                    left: "-9999px"
+                                }
+                      },
+                      e(
+                          "header",
+                          { className: "observation-popover__header" },
+                          e(
+                              "span",
+                              { className: "observation-popover__badge", "aria-hidden": "true" },
+                              e(ObservationIcon, { variant: "filled" })
+                          ),
+                          e(
+                              "div",
+                              { className: "observation-popover__titles" },
+                              e(
+                                  "span",
+                                  { className: "observation-popover__title" },
+                                  "Observação"
+                              ),
+                              props.author
+                                  ? e(
+                                        "span",
+                                        { className: "observation-popover__meta" },
+                                        props.author
+                                    )
+                                  : null,
+                              formattedTimestamp
+                                  ? e(
+                                        "span",
+                                        {
+                                            className:
+                                                "observation-popover__meta observation-popover__meta--timestamp"
+                                        },
+                                        formattedTimestamp
+                                    )
+                                  : null
+                          ),
+                          e(
+                              "button",
+                              {
+                                  type: "button",
+                                  className: "observation-popover__close",
+                                  onClick: function () {
+                                      closePopover(true);
+                                  },
+                                  "aria-label": "Fechar observação"
+                              },
+                              "×"
+                          )
+                      ),
+                      e(
+                          "div",
+                          { className: "observation-popover__content" },
+                          e(
+                              "p",
+                              { className: "observation-popover__text" },
+                              normalizedNote
+                          )
+                      )
+                  ),
+                  document.body
+              )
+            : null;
+
+        return e(
+            React.Fragment,
+            null,
+            e(
+                "div",
+                { className: "observation-widget", ref: containerRef },
+                e(
+                    "button",
+                    {
+                        type: "button",
+                        className:
+                            "observation-trigger" + (hasContent ? "" : " observation-trigger--empty"),
+                        onClick: hasContent ? handleToggle : null,
+                        disabled: !hasContent,
+                        "aria-expanded": hasContent ? String(isOpen) : undefined,
+                        "aria-controls": hasContent ? popoverId : undefined,
+                        ref: triggerRef
+                    },
+                    e(
+                        "span",
+                        { className: "observation-trigger__icon", "aria-hidden": "true" },
+                        e(ObservationIcon, { variant: hasContent ? "filled" : "outline" })
+                    ),
+                    e(
+                        "span",
+                        { className: "observation-trigger__label" },
+                        hasContent ? "Ver nota" : "Sem nota"
+                    )
+                )
+            ),
+            popoverNode
+        );
+    };
+
+    const renderObservationCell = function (value, item, options) {
+        return e(ObservationPopover, {
+            text: value,
+            author: options && options.authorField && item ? item[options.authorField] : null,
+            timestamp: options && options.timestampField && item ? item[options.timestampField] : null
+        });
+    };
+
     const TABLE_DEFINITIONS = {
         integration: {
             id: "integration",
             label: "Integrações",
             endpoint: "/api/integration/records",
+            deleteEndpoint: "/api/integration/records",
             emptyMessage: "Nenhum registro de integração encontrado.",
             defaultSort: { field: "submitted_at", direction: "desc" },
             columns: [
@@ -149,6 +450,18 @@
                     render: function (value) {
                         return e("span", null, formatDateTime(value));
                     }
+                },
+                {
+                    key: "observacao",
+                    label: "Observações",
+                    width: "160px",
+                    className: "table-cell--observacao",
+                    render: function (value, item) {
+                        return renderObservationCell(value, item, {
+                            authorField: "nome",
+                            timestampField: "submitted_at"
+                        });
+                    }
                 }
             ]
         },
@@ -156,6 +469,7 @@
             id: "occurrence",
             label: "Ocorrências",
             endpoint: "/api/occurrence/records",
+            deleteEndpoint: "/api/occurrence/records",
             emptyMessage: "Nenhum registro de ocorrência encontrado.",
             defaultSort: { field: "created_at", direction: "desc" },
             columns: [
@@ -216,6 +530,18 @@
                     sortable: true,
                     render: function (value) {
                         return e("span", null, formatDateTime(value));
+                    }
+                },
+                {
+                    key: "observacao",
+                    label: "Observações",
+                    width: "160px",
+                    className: "table-cell--observacao",
+                    render: function (value, item) {
+                        return renderObservationCell(value, item, {
+                            authorField: "nome",
+                            timestampField: "created_at"
+                        });
                     }
                 }
             ]
@@ -282,6 +608,9 @@
         });
         const [searchTerm, setSearchTerm] = React.useState("");
         const [debouncedSearch, setDebouncedSearch] = React.useState("");
+        const [refreshToken, setRefreshToken] = React.useState(0);
+        const [actionState, setActionState] = React.useState({ type: null, busyKey: null });
+        const [actionFeedback, setActionFeedback] = React.useState(null);
 
         React.useEffect(
             function () {
@@ -307,9 +636,50 @@
 
         React.useEffect(
             function () {
+                const handleTableRefresh = function (event) {
+                    const detail = event.detail || {};
+                    const targetDataset = detail.dataset;
+
+                    if (targetDataset && targetDataset !== dataset) {
+                        return;
+                    }
+
+                    setRefreshToken(function (previous) {
+                        return previous + 1;
+                    });
+                };
+
+                window.addEventListener("table:refresh", handleTableRefresh);
+
+                return function () {
+                    window.removeEventListener("table:refresh", handleTableRefresh);
+                };
+            },
+            [dataset]
+        );
+
+        React.useEffect(
+            function () {
                 setPage(1);
             },
             [debouncedSearch, dataset, sortDescriptor ? sortDescriptor.field : null, sortDescriptor ? sortDescriptor.direction : null]
+        );
+
+        React.useEffect(
+            function () {
+                if (!actionFeedback) {
+                    return undefined;
+                }
+
+                const timeoutId = window.setTimeout(function () {
+                    setActionFeedback(null);
+                }, 3800);
+
+                return function () {
+                    window.clearTimeout(timeoutId);
+                };
+            },
+            [actionFeedback]
         );
 
         React.useEffect(
@@ -392,7 +762,14 @@
                     controller.abort();
                 };
             },
-            [definition, page, debouncedSearch, sortDescriptor ? sortDescriptor.field : null, sortDescriptor ? sortDescriptor.direction : null]
+            [
+                definition,
+                page,
+                debouncedSearch,
+                sortDescriptor ? sortDescriptor.field : null,
+                sortDescriptor ? sortDescriptor.direction : null,
+                refreshToken
+            ]
         );
 
         const handleDatasetChange = function (nextDataset) {
@@ -400,6 +777,154 @@
                 props.onDatasetChange(nextDataset);
             }
         };
+
+        const datasetLabel = definition.label || dataset;
+
+        const handleEditRecord = React.useCallback(
+            function (item) {
+                if (!item || item.id === undefined || item.id === null) {
+                    return;
+                }
+
+                window.dispatchEvent(
+                    new CustomEvent("app:edit-record", {
+                        detail: {
+                            dataset: dataset,
+                            record: item
+                        }
+                    })
+                );
+            },
+            [dataset]
+        );
+
+        const handleDeleteRecord = React.useCallback(
+            async function (item) {
+                if (!item || item.id === undefined || item.id === null) {
+                    return;
+                }
+
+                const recordId = item.id;
+                const personLabel = item.nome ? " de " + String(item.nome).trim() : "";
+                const actionKey = dataset + ":" + recordId;
+                const readableDataset = dataset === "integration" ? "integração" : "ocorrência";
+                const confirmed = window.confirm(
+                    "Deseja realmente excluir a " + readableDataset + " #" + recordId + personLabel + "?"
+                );
+
+                if (!confirmed) {
+                    return;
+                }
+
+                setActionState({ type: "delete", busyKey: actionKey });
+
+                try {
+                    const baseEndpoint = (definition.deleteEndpoint || definition.endpoint || "").replace(/\/$/, "");
+                    const response = await fetch(baseEndpoint + "/" + encodeURIComponent(recordId), {
+                        method: "DELETE"
+                    });
+
+                    const payload = await response.json().catch(function () {
+                        return null;
+                    });
+
+                    if (!response.ok) {
+                        const message = payload && payload.error ? payload.error : "Não foi possível remover o registro.";
+                        throw new Error(message);
+                    }
+
+                    setActionFeedback({
+                        type: "success",
+                        message: (datasetLabel || "Registro") + " #" + recordId + " removido com sucesso."
+                    });
+
+                    window.dispatchEvent(
+                        new CustomEvent("table:refresh", {
+                            detail: { dataset: dataset }
+                        })
+                    );
+                } catch (error) {
+                    const message = error instanceof Error && error.message
+                        ? error.message
+                        : "Erro inesperado ao remover o registro.";
+                    console.error(error);
+                    setActionFeedback({ type: "error", message: message });
+                } finally {
+                    setActionState({ type: null, busyKey: null });
+                }
+            },
+            [dataset, datasetLabel, definition]
+        );
+
+        const renderActionCell = React.useCallback(
+            function (item) {
+                const recordId = item && item.id !== undefined && item.id !== null ? item.id : null;
+                const actionKey = recordId !== null ? dataset + ":" + recordId : null;
+                const isBusy = actionKey && actionState.busyKey === actionKey;
+                const isDeleteBusy = isBusy && actionState.type === "delete";
+
+                return e(
+                    "div",
+                    { className: "table-actions" },
+                    e(
+                        "button",
+                        {
+                            type: "button",
+                            className: "table-action-button table-action-button--edit",
+                            onClick: function () {
+                                handleEditRecord(item);
+                            },
+                            disabled: !recordId || isBusy,
+                            "aria-label":
+                                recordId !== null
+                                    ? "Editar registro #" + recordId
+                                    : "Editar registro"
+                        },
+                        e("i", { className: "fi-rr-edit", "aria-hidden": "true" })
+                    ),
+                    e(
+                        "button",
+                        {
+                            type: "button",
+                            className:
+                                "table-action-button table-action-button--delete" +
+                                (isDeleteBusy ? " table-action-button--loading" : ""),
+                            onClick: function () {
+                                handleDeleteRecord(item);
+                            },
+                            disabled: !recordId || isBusy,
+                            "aria-label":
+                                recordId !== null
+                                    ? "Excluir registro #" + recordId
+                                    : "Excluir registro"
+                        },
+                        e("i", { className: "fi-rr-trash", "aria-hidden": "true" })
+                    )
+                );
+            },
+            [dataset, actionState, handleEditRecord, handleDeleteRecord]
+        );
+
+        const columns = React.useMemo(
+            function () {
+                const baseColumns = Array.isArray(definition.columns) ? definition.columns.slice() : [];
+
+                baseColumns.unshift({
+                    key: "__actions",
+                    label: "Ação",
+                    width: "120px",
+                    className: "table-cell--actions",
+                    forceContentVisibility: true,
+                    sortable: false,
+                    render: function (_value, item) {
+                        return renderActionCell(item);
+                    }
+                });
+
+                return baseColumns;
+            },
+            [definition, renderActionCell]
+        );
 
         const handleSortChange = function (sortField) {
             setSortDescriptor(function (previous) {
@@ -506,6 +1031,17 @@
                     )
                 )
             ),
+            actionFeedback
+                ? e(
+                      "div",
+                      {
+                          className:
+                              "table-feedback table-feedback--" + (actionFeedback.type || "info"),
+                          role: "status"
+                      },
+                      actionFeedback.message
+                  )
+                : null,
             e(
                 "div",
                 { className: "table-surface" },
@@ -518,7 +1054,7 @@
                         e(
                             "tr",
                             { className: "data-table__head-row" },
-                            definition.columns.map(function (column) {
+                            columns.map(function (column) {
                                 const sortField = column.sortKey || column.key;
                                 const isSortable = column.sortable !== false && Boolean(sortField);
                                 const isSorted = Boolean(
@@ -596,18 +1132,20 @@
                         "tbody",
                         null,
                         loading
-                            ? e(SkeletonBody, { columns: definition.columns })
+                            ? e(SkeletonBody, { columns: columns })
                             : error
-                            ? e(TablePlaceholderRow, { columns: definition.columns }, error)
+                            ? e(TablePlaceholderRow, { columns: columns }, error)
                             : state.items.length === 0
-                            ? e(TablePlaceholderRow, { columns: definition.columns }, definition.emptyMessage)
+                            ? e(TablePlaceholderRow, { columns: columns }, definition.emptyMessage)
                             : state.items.map(function (item) {
                                   return e(
                                       "tr",
                                       { key: dataset + "-row-" + item.id, className: "data-table__row" },
-                                      definition.columns.map(function (column) {
+                                      columns.map(function (column) {
                                           const rawValue = item[column.key];
-                                          const hasValue = rawValue !== null && rawValue !== undefined && rawValue !== "";
+                                              const hasValue = column.forceContentVisibility
+                                                  ? true
+                                                  : rawValue !== null && rawValue !== undefined && rawValue !== "";
                                           const content = column.render
                                               ? column.render(rawValue, item)
                                               : hasValue

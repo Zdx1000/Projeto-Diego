@@ -90,6 +90,29 @@ def persist_integration(session: Session, payload: Dict[str, Any]) -> Integratio
     return record
 
 
+def update_integration_record(
+    session: Session, record: IntegrationRecord, payload: Dict[str, Any]
+) -> IntegrationRecord:
+    """Update an existing integration entry with sanitized data."""
+
+    if record is None:
+        raise ValueError("Registro de integração inexistente.")
+
+    record.matricula = _safe_string(payload.get("matricula"))
+    record.nome = _required_string(payload.get("nome"), "nome")
+    record.setor = _required_string(payload.get("setor"), "setor")
+    record.integracao = _required_string(payload.get("integracao"), "integracao")
+    record.supervisor = _required_string(payload.get("supervisor"), "supervisor").upper()
+    record.turno = _required_string(payload.get("turno"), "turno")
+    record.cargo = _required_string(payload.get("cargo"), "cargo")
+    record.data = _safe_date(payload.get("data"))
+    record.observacao = _safe_string(payload.get("observacao"))
+    record.submitted_at = datetime.utcnow()
+
+    session.flush()
+    return record
+
+
 def persist_occurrence(session: Session, payload: Dict[str, Any]) -> OccurrenceRecord:
     """Store an occurrence payload and return the ORM record."""
     record = OccurrenceRecord(
@@ -105,6 +128,29 @@ def persist_occurrence(session: Session, payload: Dict[str, Any]) -> OccurrenceR
         observacao=_safe_string(payload.get("observacao")),
     )
     session.add(record)
+    session.flush()
+    return record
+
+
+def update_occurrence_record(
+    session: Session, record: OccurrenceRecord, payload: Dict[str, Any]
+) -> OccurrenceRecord:
+    """Update an existing occurrence entry with sanitized data."""
+
+    if record is None:
+        raise ValueError("Registro de ocorrência inexistente.")
+
+    record.matricula = _safe_string(payload.get("matricula"))
+    record.nome = _required_string(payload.get("nome"), "nome")
+    record.setor = _required_string(payload.get("setor"), "setor")
+    record.cargo = _required_string(payload.get("cargo"), "cargo")
+    record.turno = _required_string(payload.get("turno"), "turno")
+    record.supervisor = _required_string(payload.get("supervisor"), "supervisor").upper()
+    record.grau = _safe_int(payload.get("grau"))
+    record.grau_label = _safe_string(payload.get("grau_label"))
+    record.volumes = _safe_int(payload.get("volumes"))
+    record.observacao = _safe_string(payload.get("observacao"))
+
     session.flush()
     return record
 

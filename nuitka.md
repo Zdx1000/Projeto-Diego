@@ -16,15 +16,7 @@ pip install nuitka zstandard ordered-set
 Na raiz do projeto (`Projeto-Diego`), execute:
 
 ```powershell
-nuitka run_backend.py \
-  --onefile \
-  --standalone \
-  --remove-output \
-  --enable-plugin=tk-inter \
-  --include-data-dir=frontend=frontend \
-  --include-data-dir=backend=backend \
-  --windows-disable-console \
-  --windows-icon-from-ico=frontend/favicon.ico
+nuitka run_backend.py --onefile --standalone --remove-output --enable-plugin=tk-inter --include-data-dir=frontend=frontend --include-data-dir=backend=backen --windows-disable-console --windows-icon-from-ico=frontend/favicon.ico
 ```
 
 ### Observações

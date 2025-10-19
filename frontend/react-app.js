@@ -730,6 +730,101 @@
         };
     };
 
+    const formatDateInputValue = function (value) {
+        if (!value) {
+            return "";
+        }
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return "";
+        }
+
+        return date.toISOString().slice(0, 10);
+    };
+
+    const mapIntegrationRecordToFormState = function (record, integrationOptions) {
+        if (!record) {
+            return buildDefaultFormState(integrationOptions);
+        }
+
+        const setores = Array.isArray(integrationOptions.setores) ? integrationOptions.setores : [];
+        const cargos = Array.isArray(integrationOptions.cargos) ? integrationOptions.cargos : [];
+        const turnos = Array.isArray(integrationOptions.turnos) ? integrationOptions.turnos : [];
+        const integracoes = Array.isArray(integrationOptions.integracoes) ? integrationOptions.integracoes : [];
+
+        return {
+            matricula: String(record.matricula || ""),
+            nome: String(record.nome || ""),
+            setor: ensureFromList(record.setor, setores),
+            integracao: ensureFromList(record.integracao, integracoes),
+            supervisor: String(record.supervisor || ""),
+            turno: ensureFromList(record.turno, turnos),
+            cargo: ensureFromList(record.cargo, cargos),
+            data: formatDateInputValue(record.data || record.submitted_at),
+            observacao: String(record.observacao || "")
+        };
+    };
+
+    const deriveDegreeValueFromRecord = function (record, degreeOptions) {
+        if (!degreeOptions || !degreeOptions.length) {
+            return "";
+        }
+
+        if (record && record.grau !== undefined && record.grau !== null) {
+            const numericValue = String(record.grau);
+            const exists = degreeOptions.some(function (option) {
+                return option.value === numericValue;
+            });
+            if (exists) {
+                return numericValue;
+            }
+        }
+
+        const label = record && typeof record.grau_label === "string" ? record.grau_label.trim() : "";
+        if (label) {
+            const directMatch = degreeOptions.find(function (option) {
+                return option.label === label;
+            });
+            if (directMatch) {
+                return directMatch.value;
+            }
+
+            const inferredValue = label.split("-")[0].trim();
+            const inferredExists = degreeOptions.some(function (option) {
+                return option.value === inferredValue;
+            });
+            if (inferredExists) {
+                return inferredValue;
+            }
+        }
+
+        return degreeOptions[0] ? degreeOptions[0].value : "";
+    };
+
+    const mapOccurrenceRecordToFormState = function (record, integrationOptions, occurrenceOptions) {
+        if (!record) {
+            return buildDefaultOccurrenceState(integrationOptions, occurrenceOptions);
+        }
+
+        const setores = Array.isArray(integrationOptions.setores) ? integrationOptions.setores : [];
+        const cargos = Array.isArray(integrationOptions.cargos) ? integrationOptions.cargos : [];
+        const turnos = Array.isArray(occurrenceOptions.turnos) ? occurrenceOptions.turnos : [];
+        const degreeOptions = parseDegreeOptions(occurrenceOptions.graus);
+
+        return {
+            matricula: String(record.matricula || ""),
+            nome: String(record.nome || ""),
+            setor: ensureFromList(record.setor, setores),
+            cargo: ensureFromList(record.cargo, cargos),
+            turno: ensureFromList(record.turno, turnos),
+            supervisor: String(record.supervisor || ""),
+            grau: deriveDegreeValueFromRecord(record, degreeOptions),
+            volumes: record.volumes !== undefined && record.volumes !== null ? String(record.volumes) : "",
+            observacao: String(record.observacao || "")
+        };
+    };
+
     const createChangeHandler = function (setState) {
         return function (field) {
             return function (event) {
@@ -1071,6 +1166,7 @@
         const [integrationStatus, setIntegrationStatus] = React.useState(null);
         const [occurrenceStatus, setOccurrenceStatus] = React.useState(null);
         const [configStatus, setConfigStatus] = React.useState(null);
+    const [editingContext, setEditingContext] = React.useState(null);
 
         const handleIntegrationChange = createChangeHandler(setFormData);
         const handleOccurrenceChange = createChangeHandler(setOccurrenceData);
@@ -1113,20 +1209,36 @@
                 observacao: (formData.observacao || "").trim()
             };
 
+            const isEditingIntegration =
+                editingContext && editingContext.dataset === "integration" && editingContext.id !== undefined;
+            const editingId = isEditingIntegration ? editingContext.id : null;
+
             const payload = Object.assign({}, sanitized, {
                 supervisor: sanitized.supervisor.toUpperCase(),
                 submitted_at: new Date().toISOString()
             });
 
-            console.group("Integração submetida");
+            if (isEditingIntegration) {
+                payload.id = editingId;
+            }
+
+            const endpoint = isEditingIntegration
+                ? "/api/integration/records/" + encodeURIComponent(editingId)
+                : "/api/integration";
+            const method = isEditingIntegration ? "PUT" : "POST";
+
+            console.group(isEditingIntegration ? "Integração atualizada" : "Integração submetida");
             console.table(payload);
             console.groupEnd();
 
-            setIntegrationStatus({ type: "pending", message: "Enviando dados para o backend..." });
+            setIntegrationStatus({
+                type: "pending",
+                message: isEditingIntegration ? "Atualizando registro de integração..." : "Enviando dados para o backend..."
+            });
 
             try {
-                const response = await fetch("/api/integration", {
-                    method: "POST",
+                const response = await fetch(endpoint, {
+                    method: method,
                     headers: {
                         "Content-Type": "application/json"
                     },
@@ -1150,11 +1262,27 @@
                 setIntegrationStatus({
                     type: "success",
                     message:
-                        "Integração registrada com sucesso no backend." +
+                        (isEditingIntegration
+                            ? "Integração atualizada com sucesso no backend."
+                            : "Integração registrada com sucesso no backend.") +
                         (responseBody && responseBody.record_id ? " ID " + responseBody.record_id : "")
                 });
 
                 setFormData(buildDefaultFormState(nextOptions));
+                if (isEditingIntegration) {
+                    setEditingContext(function (previous) {
+                        if (!previous || previous.dataset !== "integration") {
+                            return previous;
+                        }
+                        return null;
+                    });
+                }
+
+                window.dispatchEvent(
+                    new CustomEvent("table:refresh", {
+                        detail: { dataset: "integration" }
+                    })
+                );
             } catch (error) {
                 const message = error && error.message ? error.message : "Erro inesperado ao enviar os dados.";
                 setIntegrationStatus({ type: "error", message: message });
@@ -1176,6 +1304,10 @@
                 observacao: (occurrenceData.observacao || "").trim()
             };
 
+            const isEditingOccurrence =
+                editingContext && editingContext.dataset === "occurrence" && editingContext.id !== undefined;
+            const editingId = isEditingOccurrence ? editingContext.id : null;
+
             const degreeOptions = parseDegreeOptions(occurrenceOptions.graus);
             const selectedDegree = degreeOptions.find(function (option) {
                 return option.value === sanitized.grau;
@@ -1184,15 +1316,29 @@
                 grau_label: selectedDegree ? selectedDegree.label : sanitized.grau
             });
 
-            console.group("Ocorrência registrada");
+            if (isEditingOccurrence) {
+                payload.id = editingId;
+            }
+
+            const endpoint = isEditingOccurrence
+                ? "/api/occurrence/records/" + encodeURIComponent(editingId)
+                : "/api/occurrence";
+            const method = isEditingOccurrence ? "PUT" : "POST";
+
+            console.group(isEditingOccurrence ? "Ocorrência atualizada" : "Ocorrência registrada");
             console.table(payload);
             console.groupEnd();
 
-            setOccurrenceStatus({ type: "pending", message: "Salvando ocorrência no backend..." });
+            setOccurrenceStatus({
+                type: "pending",
+                message: isEditingOccurrence
+                    ? "Atualizando registro de ocorrência..."
+                    : "Salvando ocorrência no backend..."
+            });
 
             try {
-                const response = await fetch("/api/occurrence", {
-                    method: "POST",
+                const response = await fetch(endpoint, {
+                    method: method,
                     headers: {
                         "Content-Type": "application/json"
                     },
@@ -1215,11 +1361,28 @@
                 setOccurrenceOptions(nextOptions);
                 setOccurrenceStatus({
                     type: "success",
-                    message: "Ocorrência registrada com sucesso." +
+                    message:
+                        (isEditingOccurrence
+                            ? "Ocorrência atualizada com sucesso."
+                            : "Ocorrência registrada com sucesso.") +
                         (responseBody && responseBody.record_id ? " ID " + responseBody.record_id : "")
                 });
 
                 setOccurrenceData(buildDefaultOccurrenceState(integrationOptions, nextOptions));
+                if (isEditingOccurrence) {
+                    setEditingContext(function (previous) {
+                        if (!previous || previous.dataset !== "occurrence") {
+                            return previous;
+                        }
+                        return null;
+                    });
+                }
+
+                window.dispatchEvent(
+                    new CustomEvent("table:refresh", {
+                        detail: { dataset: "occurrence" }
+                    })
+                );
             } catch (error) {
                 const message = error && error.message ? error.message : "Erro inesperado ao registrar a ocorrência.";
                 setOccurrenceStatus({ type: "error", message: message });
@@ -1490,6 +1653,60 @@
             [integrationOptions, occurrenceOptions]
         );
 
+        React.useEffect(
+            function () {
+                const handleEditRecord = function (event) {
+                    const detail = event.detail || {};
+                    const dataset = detail.dataset;
+                    const record = detail.record;
+
+                    if (!dataset || !record || record.id === undefined || record.id === null) {
+                        return;
+                    }
+
+                    if (dataset === "integration") {
+                        const nextState = mapIntegrationRecordToFormState(record, integrationOptions);
+                        setFormData(nextState);
+                        setEditingContext({ dataset: "integration", id: record.id });
+                        setIntegrationStatus({
+                            type: "info",
+                            message:
+                                "Editando integração #" +
+                                record.id +
+                                ". Ajuste os campos e salve para aplicar as alterações."
+                        });
+                        setActiveView("integration");
+                        return;
+                    }
+
+                    if (dataset === "occurrence") {
+                        const nextState = mapOccurrenceRecordToFormState(
+                            record,
+                            integrationOptions,
+                            occurrenceOptions
+                        );
+                        setOccurrenceData(nextState);
+                        setEditingContext({ dataset: "occurrence", id: record.id });
+                        setOccurrenceStatus({
+                            type: "info",
+                            message:
+                                "Editando ocorrência #" +
+                                record.id +
+                                ". Ajuste os campos e salve para aplicar as alterações."
+                        });
+                        setActiveView("occurrence");
+                    }
+                };
+
+                window.addEventListener("app:edit-record", handleEditRecord);
+
+                return function () {
+                    window.removeEventListener("app:edit-record", handleEditRecord);
+                };
+            },
+            [integrationOptions, occurrenceOptions]
+        );
+
         const handleNavigateToTable = function () {
             setTableDataset("integration");
             setActiveView("table");
@@ -1498,6 +1715,47 @@
         const handleConsultHistory = function () {
             setTableDataset("occurrence");
             setActiveView("table");
+        };
+
+        const isEditingIntegration = editingContext && editingContext.dataset === "integration";
+        const isEditingOccurrence = editingContext && editingContext.dataset === "occurrence";
+
+        const cancelIntegrationEditing = function () {
+            if (!isEditingIntegration) {
+                return;
+            }
+
+            setEditingContext(function (previous) {
+                if (!previous || previous.dataset !== "integration") {
+                    return previous;
+                }
+                return null;
+            });
+
+            setFormData(buildDefaultFormState(integrationOptions));
+            setIntegrationStatus({
+                type: "info",
+                message: "Edição cancelada. Registre uma nova integração ou selecione outro colaborador."
+            });
+        };
+
+        const cancelOccurrenceEditing = function () {
+            if (!isEditingOccurrence) {
+                return;
+            }
+
+            setEditingContext(function (previous) {
+                if (!previous || previous.dataset !== "occurrence") {
+                    return previous;
+                }
+                return null;
+            });
+
+            setOccurrenceData(buildDefaultOccurrenceState(integrationOptions, occurrenceOptions));
+            setOccurrenceStatus({
+                type: "info",
+                message: "Edição cancelada. Registre uma nova ocorrência quando desejar."
+            });
         };
 
         const metadata = VIEW_CONFIG[activeView] || VIEW_CONFIG.integration;
@@ -1516,6 +1774,46 @@
                 dataset: tableDataset,
                 onDatasetChange: setTableDataset
             });
+        };
+
+        const renderEditingBanner = function (kind, recordId, cancelHandler) {
+            const friendlyKind = kind === "integration" ? "integração" : "ocorrência";
+            const iconLabel = kind === "integration" ? "IN" : "OC";
+            const recordLabel =
+                friendlyKind.charAt(0).toUpperCase() + friendlyKind.slice(1) + " #" + recordId;
+
+            return e(
+                "div",
+                { className: "editing-banner", role: "status", "aria-live": "polite" },
+                e("span", { className: "editing-banner__icon", "aria-hidden": "true" }, iconLabel),
+                e(
+                    "div",
+                    { className: "editing-banner__body" },
+                    e("span", { className: "editing-banner__title" }, "Modo edição ativo"),
+                    e(
+                        "span",
+                        { className: "editing-banner__subtitle" },
+                        "Você está editando ",
+                        e("span", { className: "editing-banner__record" }, recordLabel),
+                        ". Ajuste os campos e salve para aplicar as mudanças."
+                    )
+                ),
+                cancelHandler
+                    ? e(
+                          "div",
+                          { className: "editing-banner__actions" },
+                          e(
+                              "button",
+                              {
+                                  type: "button",
+                                  className: "editing-banner__cancel",
+                                  onClick: cancelHandler
+                              },
+                              "Cancelar edição"
+                          )
+                      )
+                    : null
+            );
         };
 
         const renderIdentificationSection = function (state, changeHandler) {
@@ -2196,6 +2494,9 @@
         };
 
         const renderIntegrationForm = function () {
+            const primaryActionLabel = isEditingIntegration ? "Salvar alterações" : metadata.primaryActionLabel;
+            const recordId = isEditingIntegration && editingContext ? editingContext.id : null;
+
             return e(
                 "form",
                 { className: "integration-form", onSubmit: handleIntegrationSubmit },
@@ -2210,6 +2511,9 @@
                           integrationStatus.message
                       )
                     : null,
+                isEditingIntegration && recordId !== null
+                    ? renderEditingBanner("integration", recordId, cancelIntegrationEditing)
+                    : null,
                 e(
                     "div",
                     { className: "field-section-pair" },
@@ -2219,7 +2523,7 @@
                 renderIntegrationManagementSection(),
                 renderObservationsSection(formData, handleIntegrationChange, {}),
                 renderActionBar(
-                    metadata.primaryActionLabel,
+                    primaryActionLabel,
                     metadata.secondaryActionLabel,
                     metadata.note,
                     handleNavigateToTable
@@ -2228,6 +2532,9 @@
         };
 
         const renderOccurrenceForm = function () {
+            const primaryActionLabel = isEditingOccurrence ? "Salvar alterações" : metadata.primaryActionLabel;
+            const recordId = isEditingOccurrence && editingContext ? editingContext.id : null;
+
             return e(
                 "form",
                 { className: "integration-form", onSubmit: handleOccurrenceSubmit },
@@ -2241,6 +2548,9 @@
                           },
                           occurrenceStatus.message
                       )
+                    : null,
+                isEditingOccurrence && recordId !== null
+                    ? renderEditingBanner("occurrence", recordId, cancelOccurrenceEditing)
                     : null,
                 e(
                     "div",
@@ -2262,7 +2572,7 @@
                     placeholder: "Descreva o ocorrido com clareza, incluindo volumes, causas e ações tomadas."
                 }),
                 renderActionBar(
-                    metadata.primaryActionLabel,
+                    primaryActionLabel,
                     metadata.secondaryActionLabel,
                     metadata.note,
                     handleConsultHistory
